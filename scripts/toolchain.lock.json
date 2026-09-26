@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "compiler": "v0.10.14+7d59c7ec9 (2026-09-18)",
+  "moon": "0.1.20260920 (914d7da 2026-09-20)",
+  "core": "0.10.14+7d59c7ec9",
+  "node_major": 24,
+  "core_targets": ["js", "wasm-gc", "wasm"],
+  "note": "Official dated archives returned HTTP 403 on 2026-09-26. These official latest archives are content-pinned: any upstream drift is rejected. Retain the downloads cache for offline installation.",
+  "platforms": {
+    "windows-x86_64": {
+      "binary": {
+        "url": "https://cli.moonbitlang.com/binaries/latest/moonbit-windows-x86_64.zip",
+        "file": "moonbit-v0.10.14-windows-x86_64.zip",
+        "sha256": "faae225a8287d0ce69e44b5b3f754af988e97f4446056d8f32ceb3ddb998fce7"
+      },
+      "core": {
+        "url": "https://cli.moonbitlang.com/cores/core-latest.zip",
+        "file": "core-v0.10.14.zip",
+        "sha256": "63e5b99991ac8fd49556b1e17bdcbdc662d797000250dd11ef090f38a2175e84"
+      }
+    },
+    "linux-x86_64": {
+      "binary": {
+        "url": "https://cli.moonbitlang.com/binaries/latest/moonbit-linux-x86_64.tar.gz",
+        "file": "moonbit-v0.10.14-linux-x86_64.tar.gz",
+        "sha256": "9226694de9ff978db1ecf820b7710c4224e84ec7a76b19a222d96f0cd4e31b6a"
+      },
+      "core": {
+        "url": "https://cli.moonbitlang.com/cores/core-latest.tar.gz",
+        "file": "core-v0.10.14.tar.gz",
+        "sha256": "6f18b8fdea18f85e628a75e4a1bd3977c5a5c9c6a836fd8824192b0e6bd91b14"
+      }
+    }
+  },
+  "local_linux_node": {
+    "version": "v24.15.0",
+    "url": "https://nodejs.org/dist/v24.15.0/node-v24.15.0-linux-x64.tar.xz",
+    "file": "node-v24.15.0-linux-x64.tar.xz",
+    "sha256": "472655581fb851559730c48763e0c9d3bc25975c59d518003fc0849d3e4ba0f6"
+  }
+}

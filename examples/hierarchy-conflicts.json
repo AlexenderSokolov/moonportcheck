@@ -1,0 +1,9 @@
+[
+  { "path": "duplicate.txt", "kind": "file" },
+  { "path": "duplicate.txt", "kind": "file" },
+  { "path": "duplicate.txt", "kind": "file" },
+  { "path": "Data/a.csv", "kind": "file" },
+  { "path": "data/b.csv", "kind": "file" },
+  { "path": "artifact", "kind": "file" },
+  { "path": "artifact/report.txt", "kind": "file" }
+]

@@ -1,0 +1,6 @@
+[
+  { "path": "results/A.csv", "kind": "file" },
+  { "path": "results/a.csv", "kind": "file" },
+  { "path": "assets/CON.txt", "kind": "file" },
+  { "path": "notes/report.md.", "kind": "file" }
+]

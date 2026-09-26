@@ -1,0 +1,13 @@
+{
+  "name": "moonportcheck",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24 <25" },
+  "bin": { "moonportcheck": "bin/moonportcheck.mjs" },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "demo": "node scripts/demo.mjs",
+    "bench": "node scripts/bench.mjs"
+  }
+}

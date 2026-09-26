@@ -1,0 +1,5 @@
+import {
+  "AlexenderSokolov/moonportcheck",
+}
+
+pkgtype(kind: "executable")

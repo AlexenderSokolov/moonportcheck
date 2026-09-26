@@ -1,0 +1,10 @@
+import {
+  "AlexenderSokolov/moonportcheck",
+  "moonbitlang/core/json",
+}
+
+supported_targets = "js"
+
+options(
+  link: { "js": { "format": "esm", "exports": [ "run_request" ] } },
+)

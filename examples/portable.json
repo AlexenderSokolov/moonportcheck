@@ -1,0 +1,7 @@
+[
+  { "path": "README.md", "kind": "file" },
+  { "path": "results", "kind": "directory" },
+  { "path": "results/实验记录.csv", "kind": "file" },
+  { "path": ".metadata", "kind": "directory" },
+  { "path": ".metadata/build info.json", "kind": "file" }
+]

@@ -1,0 +1,44 @@
+name: MoonPortCheck CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/cache@v4
+        with:
+          path: .toolchains/downloads
+          key: moonbit-${{ runner.os }}-${{ hashFiles('scripts/toolchain.lock.json') }}
+      - name: Install pinned toolchain (Linux)
+        if: runner.os == 'Linux'
+        run: bash scripts/toolchain.sh install
+      - name: Install pinned toolchain (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/toolchain.ps1 -Install
+      - name: Acceptance (Linux)
+        if: runner.os == 'Linux'
+        run: bash run_acceptance.sh
+      - name: Acceptance (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./run_acceptance.ps1
+      - name: Retain acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-${{ runner.os }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
