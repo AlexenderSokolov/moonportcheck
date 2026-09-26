@@ -24,13 +24,13 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 
 ## 里程碑状态
 
-状态只使用 `pending`、`in_progress`、`blocked`、`complete`。`complete` 需要对应本地检查、推送和精确 SHA 的 CI 证据；阻塞时记录实际原因与可继续事项。
+状态只使用 `pending`、`in_progress`、`blocked`、`complete`。`complete` 需要对应本地检查、推送和精确 SHA 的 CI 证据；M01 适用用户批准的首次基线安装失败例外，其失败明确保留且已由 M02 的双平台成功解除阻塞。后续里程碑必须 CI 通过再继续；阻塞时记录原因与可继续事项。
 
 | 里程碑 | 状态 | 交付内容 | 提交 SHA | Windows/Linux CI | 验证记录 |
 | --- | --- | --- | --- | --- | --- |
-| M01 | blocked | 真实 v0.1 基线与公开仓库 | `34ab2b42587addb0f0d921e00ed576d85bc6ba13` | [36214029069](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36214029069)：Windows 通过，Linux EACCES | 双平台本地通过；按计划由 M02 修复公开 CI 安装问题 |
-| M02 | in_progress | 固定下载、验收元数据、接口与统计门禁 | 待提交 | 待推送 | 双系统冷安装通过；错误哈希拒绝、版本一致性测试通过；完整验收进行中 |
-| M03 | pending | 规则目录与 `rules/explain` | — | — | 全规则查询与未知编号失败 |
+| M01 | complete | 真实 v0.1 基线与公开仓库 | `34ab2b42587addb0f0d921e00ed576d85bc6ba13` | [36214029069](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36214029069)：Windows 通过，Linux EACCES | 双平台本地通过；按计划由 M02 修复公开 CI 安装问题 |
+| M02 | complete | 固定下载、验收元数据、接口与统计门禁 | `6b9b65d9e69e36d0449780bb4188d37c898fa932` | [36214982370](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36214982370)：两系统通过 | 双系统空缓存冷安装、完整验收与工程回归通过，修复 M01 Linux 安装阻塞 |
+| M03 | in_progress | 规则目录与 `rules/explain` | — | — | 全规则查询与未知编号失败 |
 | M04 | pending | 详细诊断、来源证据、schema 2 | — | — | 隐含目录追溯、稳定分组、旧 API |
 | M05 | pending | MoonBit 路径匹配器 | — | — | 通配符、Unicode、无效模式 |
 | M06 | pending | 配置、排除与扫描剪枝 | — | — | scan/check 范围一致、排除计数 |
@@ -70,3 +70,11 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - 工程回归包括错误 binary/core hash 拒绝、显式安装路径、原生 Linux 执行权限、动态版本/执行身份、代码统计。独立审查发现并修复消费测试的相对工具链路径，代码统计的正则字面量回归同步处理。
 - API 漂移检查纳入每次检查；统计排除生成文件、工程脚本、文档、配置和展开数据。M02 产品与有效测试基准为 1,202 行（MoonBit 产品 553、Node 产品 167、MoonBit 测试 208、Node 测试 274）；工程回归本身不计入产品规模。
 - M02 完整本地验收通过：Windows `artifacts/acceptance-win32-2026-09-26T03-25-50-745Z/evidence.json`，Linux `artifacts/acceptance-linux-2026-09-26T03-28-25-827Z/evidence.json`；均使用前述冷安装 home。工程测试、21 项核心测试（双目标）、Node CLI/host、23 组报告逐字节比对、三组演示、十万规模和独立消费均通过。Windows 跳过 POSIX 专用项；Linux 全部执行。修复后的统计回归 7/7 通过。
+
+### 2026-09-26：M02 精确提交公开验收通过，开始 M03
+
+- M02 提交 `6b9b65d9e69e36d0449780bb4188d37c898fa932` 已立即推送；[Draft PR #1](https://github.com/AlexenderSokolov/moonportcheck/pull/1) 建立并关联本任务。
+- 对应 [CI 36214982370](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36214982370) 双系统通过：Linux 32 秒，Windows 51 秒。每个 runner 均执行空缓存冷安装、完整验收并上传证据。
+- M01 的原始 Linux CI 失败记录保留；阻塞由 M02 修复，不将旧 SHA 的结果改写为成功。
+- M03 新增 MoonBit 规则目录与 rules/explain CLI；先运行 CLI 回归确认两个功能用例失败，再接入实现。检查规则和 v1 报告行为保持原样。
+- M03 本地验证：核心 JS/wasm-gc 各 27/27；完整 Windows run_check 通过，Node 20 通过/2 POSIX 跳过；25 份报告/规则输出跨目标逐字节一致。旧公共接口消费者继续通过。API 门禁已实际拒绝未记录的新 RuleInfo 接口，审查并暂存接口后通过。证据日志 `artifacts/m03-check-windows.log` 与 `artifacts/m03-consumer.json`。公开 CI 待本次提交推送后核对。

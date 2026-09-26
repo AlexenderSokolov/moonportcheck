@@ -21,6 +21,16 @@ pub fn run_request(request : String) -> String {
       )
   }
   match fields.get("mode") {
+    Some(String("rules")) => rules_response(format, @moonportcheck.rules())
+    Some(String("explain")) => {
+      guard fields.get("code") is Some(String(code)) else {
+        return error_response(format, 2, "INPUT_SCHEMA", "Missing rule code.")
+      }
+      match @moonportcheck.explain(code) {
+        None => error_response(format, 2, "RULE_UNKNOWN", "Unknown rule code.")
+        Some(rule) => rules_response(format, [rule])
+      }
+    }
     Some(String("error")) => {
       guard fields.get("code") is Some(String(code)) else {
         return error_response(
@@ -124,6 +134,21 @@ pub fn run_request(request : String) -> String {
 ///|
 fn response(exit_code : Int, output : String) -> String {
   "{\"exit_code\":\{exit_code},\"output\":" + output.to_json().stringify() + "}"
+}
+
+///|
+fn rules_response(
+  format : String,
+  items : Array[@moonportcheck.RuleInfo],
+) -> String {
+  response(
+    0,
+    if format == "json" {
+      @moonportcheck.render_rules_json(items)
+    } else {
+      @moonportcheck.render_rules_text(items)
+    },
+  )
 }
 
 ///|

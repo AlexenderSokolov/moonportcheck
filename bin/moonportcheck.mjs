@@ -7,6 +7,8 @@ const help = `MoonPortCheck ${metadata.version} — portable-windows-v1
 Usage:
   moonportcheck scan ROOT [--format text|json]
   moonportcheck check MANIFEST [--format text|json]
+  moonportcheck rules [--format text|json]
+  moonportcheck explain CODE [--format text|json]
   moonportcheck --help
   moonportcheck --version
 
@@ -26,7 +28,9 @@ if (options.mode === 'help') {
     request = options;
   } else {
     try {
-      if (options.mode === 'scan') {
+      if (options.mode === 'rules' || options.mode === 'explain') {
+        request = { mode: options.mode, format: options.format, code: options.target };
+      } else if (options.mode === 'scan') {
         request = { mode: 'scan', format: options.format, ...await scan(options.target) };
       } else {
         request = { mode: 'check', format: options.format, manifest_text: await readManifest(options.target) };

@@ -127,3 +127,12 @@ bash run_acceptance.sh
 `complete=true` 表示本次输入在已覆盖规则内检查完整；清单检查不证明实际目录与清单一致，退出 `0` 不保证所有 Windows 环境都能成功复制或打开。
 
 设计与长期维护约定见 [PROJECT.md](PROJECT.md)，申报草稿见 [APPLICATION.md](docs/APPLICATION.md)，版本变更见 [CHANGELOG.md](CHANGELOG.md)。许可证为 [Apache-2.0](LICENSE)。
+
+## 查询规则原因与建议
+
+```text
+moonportcheck rules --format json
+moonportcheck explain NAME_RESERVED
+```
+
+`rules` 列出 11 个审计规则和 4 个扫描完整性问题；`explain CODE` 精确匹配编号并显示原因、触发例子和整改建议。两者支持 text/JSON，JSON 为稳定排序的规则数组，查询单条时数组长度为 1。未知编号退出 `2`，已知规则查询退出 `0`；这不表示执行了目录检查。

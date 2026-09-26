@@ -32,4 +32,6 @@ fn main {
       ]),
     ),
   )
+  println(@moonportcheck.render_rules_json(@moonportcheck.rules()))
+  println(@moonportcheck.render_rules_json(@moonportcheck.rules().rev()))
 }

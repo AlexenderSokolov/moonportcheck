@@ -8,11 +8,19 @@ import {
 // Values
 pub fn audit(Array[PathEntry]) -> Report
 
+pub fn explain(String) -> RuleInfo?
+
 pub fn parse_manifest(String) -> Result[Array[PathEntry], InputError]
 
 pub fn render_json(Report) -> String
 
+pub fn render_rules_json(Array[RuleInfo]) -> String
+
+pub fn render_rules_text(Array[RuleInfo]) -> String
+
 pub fn render_text(Report) -> String
+
+pub fn rules() -> Array[RuleInfo]
 
 // Errors
 
@@ -64,6 +72,17 @@ pub(all) struct Report {
 pub fn Report::equal(Self, Self) -> Bool
 pub fn Report::not_equal(Self, Self) -> Bool
 pub fn Report::to_repr(Self) -> @debug.Repr
+
+pub(all) struct RuleInfo {
+  code : String
+  title : String
+  reason : String
+  examples : Array[String]
+  suggestion : String
+} derive(Eq, @debug.Debug)
+pub fn RuleInfo::equal(Self, Self) -> Bool
+pub fn RuleInfo::not_equal(Self, Self) -> Bool
+pub fn RuleInfo::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Summary {
   entries : Int

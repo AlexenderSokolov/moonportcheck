@@ -129,3 +129,31 @@ test('CLI report order is deterministic across shuffled input', async () => {
   assert.equal(first.status, 1);
   assert.equal(second.stdout, first.stdout);
 });
+
+test('CLI rule catalog explains every audit and scan code with remediation', () => {
+  const listed = invoke('rules', '--format', 'json');
+  assert.equal(listed.status, 0, listed.stdout);
+  const catalog = JSON.parse(listed.stdout);
+  assert.equal(catalog.length, 15);
+  const codes = catalog.map(r => r.code);
+  assert.deepEqual(codes, [...new Set(codes)].sort());
+  for (const rule of catalog) {
+    assert.ok(rule.reason.length > 0);
+    assert.ok(rule.suggestion.length > 0);
+    assert.ok(rule.examples.length > 0);
+    const explained = invoke('explain', rule.code, '--format', 'json');
+    assert.equal(explained.status, 0);
+    assert.deepEqual(JSON.parse(explained.stdout), [rule]);
+  }
+  assert.match(invoke('rules').stdout, /PATH_KIND_CONFLICT/);
+  assert.match(invoke('explain', 'NAME_RESERVED').stdout, /CON/);
+});
+
+test('CLI unknown rule and malformed catalog commands fail with input errors', () => {
+  for (const args of [['explain', 'MISSING'], ['rules', 'extra'], ['explain'], ['explain', 'NAME_RESERVED', 'extra']]) {
+    const result = invoke(...args, '--format', 'json');
+    assert.equal(result.status, 2, JSON.stringify(args));
+    assert.equal(JSON.parse(result.stdout).complete, false);
+  }
+  assert.equal(JSON.parse(invoke('explain', 'MISSING', '--format', 'json').stdout).error.code, 'RULE_UNKNOWN');
+});
