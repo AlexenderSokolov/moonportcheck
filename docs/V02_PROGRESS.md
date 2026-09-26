@@ -10,7 +10,7 @@
 - 兼容原则：保持 v1 库接口和行为，CLI v0.2 审计 JSON 显式采用 schema 2；规则、退出码和完整性语义按计划验收。
 - 历史说明：v0.1 文档中的“未授权提交／远端”描述当时状态；本轮明确授权以上述用户消息为准。
 
-本账本初始状态不表示任何 v0.2 功能已完成。M01 已完成新的双平台本地验收，并按授权创建 [公开仓库](https://github.com/AlexenderSokolov/moonportcheck)；提交、推送和公开 CI 尚待完成。只有实际检查、提交和 CI 结果可以将里程碑推进为完成。
+M01 已保存并推送真实 v0.1 基线。首次公开 CI 的 Windows 验收通过，Linux 因官方归档缺少 ELF 执行权限而失败；按批准计划先推进 M02 修复。该历史失败保留，不能改记为双平台通过。
 
 ## 执行协议
 
@@ -28,8 +28,8 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 
 | 里程碑 | 状态 | 交付内容 | 提交 SHA | Windows/Linux CI | 验证记录 |
 | --- | --- | --- | --- | --- | --- |
-| M01 | in_progress | 真实 v0.1 基线与公开仓库 | 待提交 | 待首次推送后运行 | Windows/Linux 本地验收通过；远端已创建；尚未 commit/push |
-| M02 | pending | 固定下载、验收元数据、接口与统计门禁 | — | — | 双系统冷安装、错误哈希拒绝、版本一致性 |
+| M01 | blocked | 真实 v0.1 基线与公开仓库 | `34ab2b42587addb0f0d921e00ed576d85bc6ba13` | [36214029069](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36214029069)：Windows 通过，Linux EACCES | 双平台本地通过；按计划由 M02 修复公开 CI 安装问题 |
+| M02 | in_progress | 固定下载、验收元数据、接口与统计门禁 | 待提交 | 待推送 | 双系统冷安装通过；错误哈希拒绝、版本一致性测试通过；完整验收进行中 |
 | M03 | pending | 规则目录与 `rules/explain` | — | — | 全规则查询与未知编号失败 |
 | M04 | pending | 详细诊断、来源证据、schema 2 | — | — | 隐含目录追溯、稳定分组、旧 API |
 | M05 | pending | MoonBit 路径匹配器 | — | — | 通配符、Unicode、无效模式 |
@@ -61,3 +61,12 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - 目标公开仓库已创建：<https://github.com/AlexenderSokolov/moonportcheck>。首次 commit/push 和公开 CI 仍为 pending，M01 不得记为 complete。
 - 本条记录不声明新增 v0.2 产品功能或公开 CI 已完成。
 - 后续每条记录说明里程碑、实际改动、本地验证、提交／推送结果、精确 SHA 的双系统 CI、问题与处理。若发生计划偏差，应保留原决策并说明依据，不能静默扩大范围。
+
+### 2026-09-26：M01 公开基线与 M02 安装修复
+
+- M01 实际提交并推送 `34ab2b42587addb0f0d921e00ed576d85bc6ba13`；首次公开 CI [36214029069](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36214029069) 中 Windows 通过，Linux 在 `moonc` 处报 `EACCES`。官方 Linux tar 将原生工具存为 `0664`，WSL 的 Windows 挂载权限仿真掩盖了旧本地验收中的问题。
+- M02 保留原 SHA，将下载地址固定到完整版本；校验两份归档后，只对安装目录 `bin` 中普通 ELF 文件恢复执行权限，不跟随链接。
+- 双系统全新 home/cache 冷安装成功：`artifacts/cold-install-windows-x86_64-OSum1q/evidence.json`、`artifacts/cold-install-linux-x86_64-sj4p4B/evidence.json`。4 份归档 hash 一致，Node `24.15.0`，`moonc v0.10.14+7d59c7ec9`，三个 core 目标均构建成功。
+- 工程回归包括错误 binary/core hash 拒绝、显式安装路径、原生 Linux 执行权限、动态版本/执行身份、代码统计。独立审查发现并修复消费测试的相对工具链路径，代码统计的正则字面量回归同步处理。
+- API 漂移检查纳入每次检查；统计排除生成文件、工程脚本、文档、配置和展开数据。M02 产品与有效测试基准为 1,202 行（MoonBit 产品 553、Node 产品 167、MoonBit 测试 208、Node 测试 274）；工程回归本身不计入产品规模。
+- M02 完整本地验收通过：Windows `artifacts/acceptance-win32-2026-09-26T03-25-50-745Z/evidence.json`，Linux `artifacts/acceptance-linux-2026-09-26T03-28-25-827Z/evidence.json`；均使用前述冷安装 home。工程测试、21 项核心测试（双目标）、Node CLI/host、23 组报告逐字节比对、三组演示、十万规模和独立消费均通过。Windows 跳过 POSIX 专用项；Linux 全部执行。修复后的统计回归 7/7 通过。

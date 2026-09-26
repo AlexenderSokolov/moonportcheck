@@ -1,32 +1,28 @@
 name: MoonPortCheck CI
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read
+env:
+  GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 jobs:
   check:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
         with:
-          node-version: '24'
-      - uses: actions/cache@v4
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7.0.0
         with:
-          path: .toolchains/downloads
-          key: moonbit-${{ runner.os }}-${{ hashFiles('scripts/toolchain.lock.json') }}
-      - name: Install pinned toolchain (Linux)
-        if: runner.os == 'Linux'
-        run: bash scripts/toolchain.sh install
-      - name: Install pinned toolchain (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./scripts/toolchain.ps1 -Install
+          node-version: '24.15.0'
+      - name: Cold install pinned toolchain
+        run: node scripts/cold-install.mjs
       - name: Acceptance (Linux)
         if: runner.os == 'Linux'
         run: bash run_acceptance.sh
@@ -36,9 +32,9 @@ jobs:
         run: ./run_acceptance.ps1
       - name: Retain acceptance evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: acceptance-${{ runner.os }}
           path: artifacts/
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 30

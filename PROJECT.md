@@ -23,7 +23,7 @@
 
 ## 工具链与运行
 
-使用项目本地 MoonBit `v0.10.14`，本次锁定的 `moonc` 为 `v0.10.14+7d59c7ec9`，`moon` 为 `0.1.20260920`。Node.js 为 24 主版本。安装使用版本和 SHA-256 锁定，归档变化必须失败，不得悄悄改锁或切换编译器。精确历史版本 URL 当前不可用，首次安装的可用官方归档及校验值由 `scripts/toolchain.lock.json` 记录；离线恢复应保留项目缓存。
+使用项目本地 MoonBit `v0.10.14`，锁定的 `moonc` 为 `v0.10.14+7d59c7ec9`，`moon` 为 `0.1.20260920`。CI 使用 Node.js `24.15.0`。安装使用完整版本 URL 和 SHA-256 锁定，归档变化必须失败，不回退 `latest`。Linux 安装时恢复经校验归档中 ELF 工具的执行权限。`scripts/cold-install.mjs` 在全新 home/cache 中验证下载、版本和 core 构建；CI 后续步骤复用该结果，运行环境和精确提交身份由验收记录保存。
 
 | 操作 | PowerShell | Bash |
 | --- | --- | --- |

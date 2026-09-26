@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { delimiter, dirname, join } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
@@ -8,7 +8,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const platform = process.platform === 'win32' && process.arch === 'x64' ? 'windows-x86_64'
   : process.platform === 'linux' && process.arch === 'x64' ? 'linux-x86_64' : null;
 assert.ok(platform, 'The pinned toolchain supports Windows x64 and Linux x64.');
-const toolchain = join(root, '.toolchains', platform);
+const toolchain = resolve(root, process.env.MOONPORT_TOOLCHAIN_HOME ?? join(root, '.toolchains', platform));
 const moon = join(toolchain, 'bin', process.platform === 'win32' ? 'moon.exe' : 'moon');
 const env = { ...process.env, MOON_HOME: toolchain, PATH: `${join(toolchain, 'bin')}${delimiter}${process.env.PATH}` };
 const packageFiles = ['bin/moonportcheck.mjs', 'lib/host.mjs', 'dist/bridge.js', 'package.json'];

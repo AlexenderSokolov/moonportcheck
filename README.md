@@ -32,7 +32,9 @@ node bin/moonportcheck.mjs --version
 node bin/moonportcheck.mjs check examples/windows-problems.json --format text
 ```
 
-最后一个命令发现问题时退出 `1`，这是预期行为。首次安装需要访问官方工具链源。精确历史版本 URL 当前不可用，安装器使用经版本确认的归档及 `scripts/toolchain.lock.json` 中的 SHA-256；远端内容变动会停止，不能自动升级到新版。保留 `.toolchains` 缓存可用于离线恢复；构建和检查入口不自动联网安装。完整版本、归档来源与校验值以锁文件及安装器输出为准。
+最后一个命令发现问题时退出 `1`，这是预期行为。首次安装访问官方完整版本 `0.10.14%2B7d59c7ec9` 的固定归档地址，并核对 `scripts/toolchain.lock.json` 中的 SHA-256；下载或校验失败会停止，不回退 `latest`。安装器在 Linux 上恢复经过校验的原生 ELF 工具的执行权限。保留 `.toolchains` 缓存可用于离线恢复；构建和检查入口不自动联网安装。完整版本、归档来源与校验值以锁文件及安装器输出为准。
+
+`node scripts/cold-install.mjs` 使用新的临时安装目录和空下载缓存验证冷安装，保存下载哈希、完整版本及 core 构建证据。`MOONPORT_TOOLCHAIN_HOME` 和 `MOONPORT_TOOLCHAIN_CACHE` 可显式选择隔离目录；CI 直接复用其冷安装结果。CI 检查精确 PR 提交，只对 `main` push 和 PR 更新运行，常规证据保留 30 天。
 
 ## 检查目录或清单
 

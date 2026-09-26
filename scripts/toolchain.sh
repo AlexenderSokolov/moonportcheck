@@ -9,7 +9,9 @@ fi
 if [[ -x "$moonport_root/.toolchains/node-v24.15.0-linux-x64/bin/node" ]]; then
   export PATH="$moonport_root/.toolchains/node-v24.15.0-linux-x64/bin:$PATH"
 fi
-export MOON_HOME="$moonport_root/.toolchains/linux-x86_64"
+moonport_home="${MOONPORT_TOOLCHAIN_HOME:-.toolchains/linux-x86_64}"
+if [[ "$moonport_home" != /* ]]; then moonport_home="$moonport_root/$moonport_home"; fi
+export MOON_HOME="$moonport_home"
 export PATH="$MOON_HOME/bin:$PATH"
 moonport_action='verify'
 if [[ "${BASH_SOURCE[0]}" == "$0" && "${1:-}" == 'install' ]]; then

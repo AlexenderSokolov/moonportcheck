@@ -5,28 +5,28 @@
   "core": "0.10.14+7d59c7ec9",
   "node_major": 24,
   "core_targets": ["js", "wasm-gc", "wasm"],
-  "note": "Official dated archives returned HTTP 403 on 2026-09-26. These official latest archives are content-pinned: any upstream drift is rejected. Retain the downloads cache for offline installation.",
+  "note": "Official full-version archive URLs and content hashes are both pinned. Installation never falls back to latest. Retain the downloads cache for offline installation.",
   "platforms": {
     "windows-x86_64": {
       "binary": {
-        "url": "https://cli.moonbitlang.com/binaries/latest/moonbit-windows-x86_64.zip",
+        "url": "https://cli.moonbitlang.com/binaries/0.10.14%2B7d59c7ec9/moonbit-windows-x86_64.zip",
         "file": "moonbit-v0.10.14-windows-x86_64.zip",
         "sha256": "faae225a8287d0ce69e44b5b3f754af988e97f4446056d8f32ceb3ddb998fce7"
       },
       "core": {
-        "url": "https://cli.moonbitlang.com/cores/core-latest.zip",
+        "url": "https://cli.moonbitlang.com/cores/core-0.10.14%2B7d59c7ec9.zip",
         "file": "core-v0.10.14.zip",
         "sha256": "63e5b99991ac8fd49556b1e17bdcbdc662d797000250dd11ef090f38a2175e84"
       }
     },
     "linux-x86_64": {
       "binary": {
-        "url": "https://cli.moonbitlang.com/binaries/latest/moonbit-linux-x86_64.tar.gz",
+        "url": "https://cli.moonbitlang.com/binaries/0.10.14%2B7d59c7ec9/moonbit-linux-x86_64.tar.gz",
         "file": "moonbit-v0.10.14-linux-x86_64.tar.gz",
         "sha256": "9226694de9ff978db1ecf820b7710c4224e84ec7a76b19a222d96f0cd4e31b6a"
       },
       "core": {
-        "url": "https://cli.moonbitlang.com/cores/core-latest.tar.gz",
+        "url": "https://cli.moonbitlang.com/cores/core-0.10.14%2B7d59c7ec9.tar.gz",
         "file": "core-v0.10.14.tar.gz",
         "sha256": "6f18b8fdea18f85e628a75e4a1bd3977c5a5c9c6a836fd8824192b0e6bd91b14"
       }
