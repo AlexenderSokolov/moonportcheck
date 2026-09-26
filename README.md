@@ -138,3 +138,5 @@ moonportcheck explain NAME_RESERVED
 ```
 
 `rules` 列出 11 个审计规则和 4 个扫描完整性问题；`explain CODE` 精确匹配编号并显示原因、触发例子和整改建议。两者支持 text/JSON，JSON 为稳定排序的规则数组，查询单条时数组长度为 1。未知编号退出 `2`，已知规则查询退出 `0`；这不表示执行了目录检查。
+
+库还提供 `parse_pattern` 与 `pattern_matches` 进行纯路径范围匹配，完整语义见 [PATTERNS.md](docs/PATTERNS.md)。当前 M05 仅提供匹配核心，配置和 CLI 排除由 M06 接入。

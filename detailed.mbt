@@ -1,7 +1,7 @@
 ///|
 /// Validated audit settings. Use default_audit_options to create v0.2 settings.
 pub struct AuditOptions {
-  sample_limit : Int
+  priv sample_limit : Int
 }
 
 ///|

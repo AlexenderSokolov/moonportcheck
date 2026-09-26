@@ -76,4 +76,29 @@ fn main {
       ]),
     ),
   )
+  let glob_cases : Array[(String, String, @moonportcheck.EntryKind)] = [
+    ("*.txt", "notes/a.txt", @moonportcheck.File),
+    ("**/*.txt", "notes/a.txt", @moonportcheck.File),
+    ("**/?.txt", "数据/🙂.txt", @moonportcheck.File),
+    ("cache/", "cache", @moonportcheck.File),
+    ("cache/", "cache", @moonportcheck.Directory),
+    ("cache/", "cache/nested/file", @moonportcheck.File),
+    ("build", "build/log", @moonportcheck.File),
+    ("**", "a/../b", @moonportcheck.File),
+    ("**/", "topfile", @moonportcheck.File),
+    ("a/**/b", "a/b", @moonportcheck.File),
+    ("a/*/b", "a/b", @moonportcheck.File),
+    ("**/", "a/file", @moonportcheck.File),
+  ]
+  for (raw, path, kind) in glob_cases {
+    let compiled = match @moonportcheck.parse_pattern(raw) {
+      Ok(pattern) => pattern
+      Err(_) => abort("Invalid parity pattern")
+    }
+    println(
+      @moonportcheck.pattern_matches(compiled, { path, kind, })
+      .to_json()
+      .stringify(),
+    )
+  }
 }

@@ -16,6 +16,10 @@ pub fn explain(String) -> RuleInfo?
 
 pub fn parse_manifest(String) -> Result[Array[PathEntry], InputError]
 
+pub fn parse_pattern(String) -> Result[PathPattern, InputError]
+
+pub fn pattern_matches(PathPattern, PathEntry) -> Bool
+
 pub fn render_detailed_json(DetailedReport) -> String
 
 pub fn render_detailed_text(DetailedReport) -> String
@@ -36,7 +40,7 @@ pub fn with_scan_issues(DetailedReport, Array[ScanIssue]) -> DetailedReport
 
 // Types and methods
 pub struct AuditOptions {
-  sample_limit : Int
+  // private fields
 }
 
 pub(all) struct DetailedDiagnostic {
@@ -107,6 +111,10 @@ pub(all) struct PathEntry {
 pub fn PathEntry::equal(Self, Self) -> Bool
 pub fn PathEntry::not_equal(Self, Self) -> Bool
 pub fn PathEntry::to_repr(Self) -> @debug.Repr
+
+pub struct PathPattern {
+  // private fields
+}
 
 pub(all) struct Report {
   schema_version : Int

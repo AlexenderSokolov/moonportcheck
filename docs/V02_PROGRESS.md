@@ -31,8 +31,8 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 | M01 | complete | 真实 v0.1 基线与公开仓库 | `34ab2b42587addb0f0d921e00ed576d85bc6ba13` | [36214029069](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36214029069)：Windows 通过，Linux EACCES | 双平台本地通过；按计划由 M02 修复公开 CI 安装问题 |
 | M02 | complete | 固定下载、验收元数据、接口与统计门禁 | `6b9b65d9e69e36d0449780bb4188d37c898fa932` | [36214982370](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36214982370)：两系统通过 | 双系统空缓存冷安装、完整验收与工程回归通过，修复 M01 Linux 安装阻塞 |
 | M03 | complete | 规则目录与 `rules/explain` | `0880a08de9db501e756a2e1fe32b52b420938b96` | [36215499117](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36215499117)：两系统通过 | 27项核心测试/目标、全规则查询、未知编号失败、25份跨目标比对及旧消费者 |
-| M04 | in_progress | 详细诊断、来源证据、schema 2 | — | — | 隐含目录追溯、稳定分组、旧 API |
-| M05 | pending | MoonBit 路径匹配器 | — | — | 通配符、Unicode、无效模式 |
+| M04 | complete | 详细诊断、来源证据、schema 2 | `10a65668d83e431bbd9c3eff14cb84276612371f` | [36216177182](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36216177182)：两系统通过 | 38项核心/目标，49份跨目标输出，旧消费者及十万规模通过 |
+| M05 | in_progress | MoonBit 路径匹配器 | — | — | 通配符、Unicode、无效模式 |
 | M06 | pending | 配置、排除与扫描剪枝 | — | — | scan/check 范围一致、排除计数 |
 | M07 | pending | Snapshot 模型与序列化 | — | — | 往返、稳定排序、损坏输入 |
 | M08 | pending | snapshot CLI 与快照检查 | — | — | 真实导出、完整性继承 |
@@ -86,3 +86,10 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - 复杂度按实际输入与输出规模解释：完整来源可随冲突前缀数增长，样例限制不代表机器报告体积被限制。实现按索引补证据，避免逐诊断重新全扫输入。
 - CLI schema2 回归先确认旧实现失败（schema1 != 2），随后实施桥接迁移。旧库 API 仍输出 schema1，独立消费者继续验证。
 - M04 完整验收通过：`artifacts/acceptance-win32-2026-09-26T03-52-05-617Z/evidence.json`。38项核心测试/目标，23项Node测试（Windows21通过/2 POSIX跳过），49份输出跨目标一致，十万正常/冲突输入、三组演示及旧库消费者通过；独立只读审查无阻塞项。元数据升为0.2.0-dev，尚未正式发布。新增接口均经过生成差异审查，原v1公共声明无变更。
+
+### 2026-09-26：M04 公开验收通过，开始 M05
+
+- M04 `10a65668d83e431bbd9c3eff14cb84276612371f` 的 [CI 36216177182](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36216177182) 两系统成功。
+- M05 实现纯 MoonBit 排除模式匹配器，固定大小写、Unicode字符、整段双星与目录子树语义；结构非法路径不可通过排除隐藏。另以独立递归解释器核对84个短路径与15种模式组合，生产实现采用迭代状态推进。
+- M05 有效RED后，JS/wasm-gc 各51/51核心测试通过；Windows整套run_check通过，61份新旧输出逐字节一致（含12组匹配输出）。独立只读审查未发现缺陷。5,000段深路径、512字符共同前缀、128个重复星号片段通过。记录 `artifacts/m05-check-windows.log`。
+- 模式 AST 字段显式私有；同时将 AuditOptions 的 sample_limit 标为私有，落实 M04 已约定的不透明接口，旧v1接口未动。
