@@ -37,7 +37,7 @@ for (const example of examples) {
   assert.equal(result.status, example.exit,
     `${example.file}: unexpected exit code\n${result.stderr}\n${result.stdout}`);
   const report = JSON.parse(result.stdout);
-  assert.equal(report.schema_version, 1);
+  assert.equal(report.schema_version, 2);
   assert.equal(report.profile, 'portable-windows-v1');
   assert.equal(report.source, 'manifest');
   assert.equal(report.complete, true);

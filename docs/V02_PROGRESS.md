@@ -30,8 +30,8 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 | --- | --- | --- | --- | --- | --- |
 | M01 | complete | 真实 v0.1 基线与公开仓库 | `34ab2b42587addb0f0d921e00ed576d85bc6ba13` | [36214029069](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36214029069)：Windows 通过，Linux EACCES | 双平台本地通过；按计划由 M02 修复公开 CI 安装问题 |
 | M02 | complete | 固定下载、验收元数据、接口与统计门禁 | `6b9b65d9e69e36d0449780bb4188d37c898fa932` | [36214982370](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36214982370)：两系统通过 | 双系统空缓存冷安装、完整验收与工程回归通过，修复 M01 Linux 安装阻塞 |
-| M03 | in_progress | 规则目录与 `rules/explain` | — | — | 全规则查询与未知编号失败 |
-| M04 | pending | 详细诊断、来源证据、schema 2 | — | — | 隐含目录追溯、稳定分组、旧 API |
+| M03 | complete | 规则目录与 `rules/explain` | `0880a08de9db501e756a2e1fe32b52b420938b96` | [36215499117](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36215499117)：两系统通过 | 27项核心测试/目标、全规则查询、未知编号失败、25份跨目标比对及旧消费者 |
+| M04 | in_progress | 详细诊断、来源证据、schema 2 | — | — | 隐含目录追溯、稳定分组、旧 API |
 | M05 | pending | MoonBit 路径匹配器 | — | — | 通配符、Unicode、无效模式 |
 | M06 | pending | 配置、排除与扫描剪枝 | — | — | scan/check 范围一致、排除计数 |
 | M07 | pending | Snapshot 模型与序列化 | — | — | 往返、稳定排序、损坏输入 |
@@ -78,3 +78,11 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - M01 的原始 Linux CI 失败记录保留；阻塞由 M02 修复，不将旧 SHA 的结果改写为成功。
 - M03 新增 MoonBit 规则目录与 rules/explain CLI；先运行 CLI 回归确认两个功能用例失败，再接入实现。检查规则和 v1 报告行为保持原样。
 - M03 本地验证：核心 JS/wasm-gc 各 27/27；完整 Windows run_check 通过，Node 20 通过/2 POSIX 跳过；25 份报告/规则输出跨目标逐字节一致。旧公共接口消费者继续通过。API 门禁已实际拒绝未记录的新 RuleInfo 接口，审查并暂存接口后通过。证据日志 `artifacts/m03-check-windows.log` 与 `artifacts/m03-consumer.json`。公开 CI 待本次提交推送后核对。
+
+### 2026-09-26：M03 公开验收通过，开始 M04
+
+- M03 `0880a08de9db501e756a2e1fe32b52b420938b96` 对应 [CI 36215499117](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36215499117) 的 Windows/Linux 均通过，方进入 M04。
+- M04 设计经独立审查：单路径身份使用原始路径，集合冲突身份使用折叠后的完整前缀；来源关联原始 `(path,kind)` 及次数，不虚构隐含目录输入。样例优先覆盖冲突两侧，再补足最多5条；完整机器成员不截断。
+- 复杂度按实际输入与输出规模解释：完整来源可随冲突前缀数增长，样例限制不代表机器报告体积被限制。实现按索引补证据，避免逐诊断重新全扫输入。
+- CLI schema2 回归先确认旧实现失败（schema1 != 2），随后实施桥接迁移。旧库 API 仍输出 schema1，独立消费者继续验证。
+- M04 完整验收通过：`artifacts/acceptance-win32-2026-09-26T03-52-05-617Z/evidence.json`。38项核心测试/目标，23项Node测试（Windows21通过/2 POSIX跳过），49份输出跨目标一致，十万正常/冲突输入、三组演示及旧库消费者通过；独立只读审查无阻塞项。元数据升为0.2.0-dev，尚未正式发布。新增接口均经过生成差异审查，原v1公共声明无变更。

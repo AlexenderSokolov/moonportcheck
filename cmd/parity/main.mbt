@@ -34,4 +34,46 @@ fn main {
   )
   println(@moonportcheck.render_rules_json(@moonportcheck.rules()))
   println(@moonportcheck.render_rules_json(@moonportcheck.rules().rev()))
+  for paths in cases {
+    let entries : Array[@moonportcheck.PathEntry] = paths.map(p => {
+      path: p,
+      kind: @moonportcheck.File,
+    })
+    println(
+      @moonportcheck.render_detailed_json(
+        @moonportcheck.audit_with_options(
+          entries,
+          @moonportcheck.default_audit_options(),
+        ),
+      ),
+    )
+    println(
+      @moonportcheck.render_detailed_json(
+        @moonportcheck.audit_with_options(
+          entries.rev(),
+          @moonportcheck.default_audit_options(),
+        ),
+      ),
+    )
+  }
+  let detailed = @moonportcheck.audit_with_options(
+    [
+      { path: "artifact", kind: @moonportcheck.File, },
+      { path: "artifact/report", kind: @moonportcheck.File, },
+      { path: "artifact/report", kind: @moonportcheck.File, },
+    ],
+    @moonportcheck.default_audit_options(),
+  )
+  println(@moonportcheck.render_detailed_json(detailed))
+  println(
+    @moonportcheck.render_detailed_json(
+      @moonportcheck.with_scan_issues(detailed, [
+        {
+          code: "SCAN_LINK_SKIPPED",
+          path: "link",
+          message: "Link was not followed.",
+        },
+      ]),
+    ),
+  )
 }

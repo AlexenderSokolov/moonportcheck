@@ -2,7 +2,7 @@
 
 用 MoonBit 编写的跨平台路径预检库与离线 CLI。在把代码、数据或实验成果交给 Windows 用户前，检查文件名称、隐含目录及集合冲突。
 
-**当前版本：`0.1.0` 本地候选版。** 检查配置固定为 `portable-windows-v1`。项目尚未对外发布；这里不将本地测试等同于公开 CI、Mooncakes 安装或赛事验收通过。
+**当前源码版本：`0.2.0-dev`，尚未正式发布。** 检查配置固定为 `portable-windows-v1`。[公开仓库](https://github.com/AlexenderSokolov/moonportcheck) 持续开发，已加入规则查询与 M04 详细报告。后续配置排除、快照、差异和基线等能力仍按 [v0.2 计划](docs/V02_PLAN.md) 分步实施；实际里程碑与对应 CI 证据见 [执行账本](docs/V02_PROGRESS.md)。
 
 ```text
 results/A.csv + results/a.csv  → PATH_CASE_COLLISION
@@ -73,7 +73,7 @@ node bin/moonportcheck.mjs check examples/windows-problems.json --format json
 | `2` | 参数、编码或清单结构错误 |
 | `3` | I/O 失败或扫描不完整，优先于 `1` |
 
-报告写入标准输出。JSON 报告具有 `schema_version`、`profile`、`source`、`complete`、`summary`、`diagnostics` 和 `limitations`；每组诊断含 `code`、`severity`、`paths`、`occurrences`、`message`。诊断分组与排序固定，不附时间戳。错误使用独立错误响应，不输出误导性的空成功报告。
+报告写入标准输出。v0.2 CLI 的审计和错误 JSON 明确使用 **schema 2**。审计报告保留原有平面字段，详细诊断增加原始来源、成员计数和稳定组身份；扫描问题独立放在 `scan_issues`，不再混入 `diagnostics`。`scope`、`excluded_entries`、`pruned_directories` 已保留在报告中，M04 当前为 `[]`、`0`、`[]`，不代表排除功能已实现。诊断分组与排序固定，不附时间戳。错误使用独立错误响应，不输出误导性的空成功报告。字段与消费迁移见 [SCHEMA2.md](docs/SCHEMA2.md)。
 
 ## 作为 MoonBit 库使用
 
@@ -88,7 +88,9 @@ node bin/moonportcheck.mjs check examples/windows-problems.json --format json
 | `render_json(Report)` | 生成 JSON 报告 |
 | `render_text(Report)` | 生成可读文本报告 |
 
-纯库只检查传入集合，不访问文件系统。CLI 负责在报告中补充来源与扫描完整性。核心库的 JS 与 wasm-gc 行为应通过同一组测试和报告比对。
+这些原接口及 `Report` 保持 v1 行为，`render_json` 仍输出 schema 1，已有库消费者无需修改。需要详细报告时，使用不透明的 `AuditOptions` 及 `default_audit_options()`，调用 `audit_with_options(entries, options)` 返回 `DetailedReport`，再用 `render_detailed_json` / `render_detailed_text` 渲染。`ScanIssue` 与 `with_scan_issues` 用于附入扫描完整性问题。
+
+详细诊断的 `members` 保留全量原始 `(path, kind, count)`，`source_examples` 最多展示 5 条，不能代替完整成员或组身份；`occurrences` 保留旧含义。纯库只检查传入集合，不访问文件系统。CLI 使用详细接口汇总来源与扫描完整性。核心库的 JS 与 wasm-gc 行为通过同一组测试和报告比对；新旧接口选择及字段说明见 [schema 2 迁移说明](docs/SCHEMA2.md)。
 
 ## 演示与验证
 
@@ -116,7 +118,7 @@ bash run_acceptance.sh
 | [windows-problems.json](examples/windows-problems.json) | 大小写冲突、设备保留名、尾点 | `1` |
 | [hierarchy-conflicts.json](examples/hierarchy-conflicts.json) | 三次重复、隐含目录大小写冲突、文件与目录冲突 | `1` |
 
-`run_check` 汇总工具链检查、格式检查、构建、双目标核心测试、Node CLI 测试和跨目标报告比对。`run_acceptance` 包含这些检查，并依次运行演示、十万条路径规模测试、独立库消费及不带编译器的 CLI 运行验证；日志、工具链身份和源码文件哈希保存在 `artifacts/acceptance-<平台>-<时间>/`。规模测试也可单独运行 `node scripts/bench.mjs`；时间与内存以当次输出为准。实际结果及验证边界见 [ACCEPTANCE.md](docs/ACCEPTANCE.md)。公开 CI、Mooncakes 发布和十月活动验收需要后续发布步骤与实际结果。
+`run_check` 汇总工具链检查、格式检查、构建、双目标核心测试、Node CLI 测试和跨目标报告比对。`run_acceptance` 包含这些检查，并依次运行演示、十万条路径规模测试、独立库消费及不带编译器的 CLI 运行验证；日志、工具链身份和源码文件哈希保存在 `artifacts/acceptance-<平台>-<时间>/`。规模测试也可单独运行 `node scripts/bench.mjs`；时间与内存以当次输出为准。v0.1 本地结果及验证边界见 [ACCEPTANCE.md](docs/ACCEPTANCE.md)，v0.2 各提交的实际检查和公开 CI 见 [执行账本](docs/V02_PROGRESS.md)。Mooncakes 发布和十月活动验收仍需后续授权与实际结果。
 
 ## 覆盖范围
 

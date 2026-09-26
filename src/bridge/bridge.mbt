@@ -60,7 +60,14 @@ pub fn run_request(request : String) -> String {
       }
       match @moonportcheck.parse_manifest(text) {
         Err(e) => error_response(format, 2, e.code, e.message)
-        Ok(entries) => report_response(format, @moonportcheck.audit(entries))
+        Ok(entries) =>
+          report_response(
+            format,
+            @moonportcheck.audit_with_options(
+              entries,
+              @moonportcheck.default_audit_options(),
+            ),
+          )
       }
     }
     Some(String("scan")) => {
@@ -79,8 +86,11 @@ pub fn run_request(request : String) -> String {
           format, 2, "INPUT_SCHEMA", "Missing scan issues array.",
         )
       }
-      let base = @moonportcheck.audit(entries)
-      let diagnostics = base.diagnostics.copy()
+      let base = @moonportcheck.audit_with_options(
+        entries,
+        @moonportcheck.default_audit_options(),
+      )
+      let issues : Array[@moonportcheck.ScanIssue] = []
       for item in raw_issues {
         guard item is Object(issue) else {
           return error_response(
@@ -102,29 +112,9 @@ pub fn run_request(request : String) -> String {
             format, 2, "INPUT_SCHEMA", "Scan issue requires a message.",
           )
         }
-        diagnostics.push({
-          code,
-          severity: "error",
-          paths: [path],
-          occurrences: 1,
-          message,
-        })
+        issues.push({ code, path, message, })
       }
-      let report : @moonportcheck.Report = {
-        schema_version: base.schema_version,
-        profile: base.profile,
-        source: "scan",
-        complete: raw_issues.is_empty(),
-        summary: {
-          entries: base.summary.entries,
-          files: base.summary.files,
-          directories: base.summary.directories,
-          diagnostic_groups: diagnostics.length(),
-          scan_issues: raw_issues.length(),
-        },
-        diagnostics,
-        limitations: base.limitations,
-      }
+      let report = @moonportcheck.with_scan_issues(base, issues)
       report_response(format, report)
     }
     _ => error_response(format, 2, "ARGUMENT_ERROR", "Unknown request mode.")
@@ -159,7 +149,7 @@ fn error_response(
   message : String,
 ) -> String {
   let output = if format == "json" {
-    "{\"schema_version\":1,\"profile\":\"portable-windows-v1\",\"complete\":false,\"error\":{\"code\":" +
+    "{\"schema_version\":2,\"profile\":\"portable-windows-v1\",\"complete\":false,\"error\":{\"code\":" +
     code.to_json().stringify() +
     ",\"message\":" +
     message.to_json().stringify() +
@@ -174,7 +164,10 @@ fn error_response(
 }
 
 ///|
-fn report_response(format : String, report : @moonportcheck.Report) -> String {
+fn report_response(
+  format : String,
+  report : @moonportcheck.DetailedReport,
+) -> String {
   let exit_code = if !report.complete {
     3
   } else if report.diagnostics.is_empty() {
@@ -183,9 +176,9 @@ fn report_response(format : String, report : @moonportcheck.Report) -> String {
     1
   }
   let output = if format == "json" {
-    @moonportcheck.render_json(report)
+    @moonportcheck.render_detailed_json(report)
   } else {
-    @moonportcheck.render_text(report)
+    @moonportcheck.render_detailed_text(report)
   }
   response(exit_code, output)
 }

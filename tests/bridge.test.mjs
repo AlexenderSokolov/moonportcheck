@@ -11,7 +11,12 @@ test('partial scan takes precedence over valid findings on every OS', () => {
   assert.equal(report.source, 'scan');
   assert.equal(report.summary.files, 1);
   assert.equal(report.summary.scan_issues, 1);
-  assert.deepEqual(report.diagnostics.map(d => d.code), ['NAME_RESERVED', 'SCAN_IO_ERROR']);
+  assert.equal(report.schema_version, 2);
+  assert.deepEqual(report.diagnostics.map(d => d.code), ['NAME_RESERVED']);
+  assert.deepEqual(report.scan_issues.map(d => d.code), ['SCAN_IO_ERROR']);
+  assert.equal(report.summary.diagnostic_groups, 1);
+  assert.equal(report.scan_issues[0].path, 'closed');
+  assert.equal(report.scan_issues[0].members, undefined, 'scan failures must not invent entry kinds');
 });
 test('empty inaccessible scan cannot pass as an empty directory', () => {
   const result = run({ mode: 'scan', format: 'text', entries: [], scan_issues: [{ code: 'SCAN_IO_ERROR', path: '.', message: 'Cannot enumerate directory (EACCES).' }] });

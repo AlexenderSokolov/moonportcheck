@@ -8,9 +8,17 @@ import {
 // Values
 pub fn audit(Array[PathEntry]) -> Report
 
+pub fn audit_with_options(Array[PathEntry], AuditOptions) -> DetailedReport
+
+pub fn default_audit_options() -> AuditOptions
+
 pub fn explain(String) -> RuleInfo?
 
 pub fn parse_manifest(String) -> Result[Array[PathEntry], InputError]
+
+pub fn render_detailed_json(DetailedReport) -> String
+
+pub fn render_detailed_text(DetailedReport) -> String
 
 pub fn render_json(Report) -> String
 
@@ -22,9 +30,49 @@ pub fn render_text(Report) -> String
 
 pub fn rules() -> Array[RuleInfo]
 
+pub fn with_scan_issues(DetailedReport, Array[ScanIssue]) -> DetailedReport
+
 // Errors
 
 // Types and methods
+pub struct AuditOptions {
+  sample_limit : Int
+}
+
+pub(all) struct DetailedDiagnostic {
+  code : String
+  severity : String
+  paths : Array[String]
+  occurrences : Int
+  message : String
+  anchor : String
+  group_key : String
+  members : Array[SourceMember]
+  source_examples : Array[SourceMember]
+  source_total : Int
+  sources_truncated : Bool
+} derive(Eq, @debug.Debug)
+pub fn DetailedDiagnostic::equal(Self, Self) -> Bool
+pub fn DetailedDiagnostic::not_equal(Self, Self) -> Bool
+pub fn DetailedDiagnostic::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DetailedReport {
+  schema_version : Int
+  profile : String
+  source : String
+  complete : Bool
+  summary : Summary
+  diagnostics : Array[DetailedDiagnostic]
+  limitations : Array[String]
+  scan_issues : Array[ScanIssue]
+  scope : Array[String]
+  excluded_entries : Int
+  pruned_directories : Array[String]
+} derive(Eq, @debug.Debug)
+pub fn DetailedReport::equal(Self, Self) -> Bool
+pub fn DetailedReport::not_equal(Self, Self) -> Bool
+pub fn DetailedReport::to_repr(Self) -> @debug.Repr
+
 pub(all) struct Diagnostic {
   code : String
   severity : String
@@ -83,6 +131,24 @@ pub(all) struct RuleInfo {
 pub fn RuleInfo::equal(Self, Self) -> Bool
 pub fn RuleInfo::not_equal(Self, Self) -> Bool
 pub fn RuleInfo::to_repr(Self) -> @debug.Repr
+
+pub(all) struct ScanIssue {
+  code : String
+  path : String
+  message : String
+} derive(Eq, @debug.Debug)
+pub fn ScanIssue::equal(Self, Self) -> Bool
+pub fn ScanIssue::not_equal(Self, Self) -> Bool
+pub fn ScanIssue::to_repr(Self) -> @debug.Repr
+
+pub(all) struct SourceMember {
+  path : String
+  kind : EntryKind
+  count : Int
+} derive(Eq, @debug.Debug)
+pub fn SourceMember::equal(Self, Self) -> Bool
+pub fn SourceMember::not_equal(Self, Self) -> Bool
+pub fn SourceMember::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Summary {
   entries : Int

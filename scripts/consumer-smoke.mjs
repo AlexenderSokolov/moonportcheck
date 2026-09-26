@@ -76,7 +76,10 @@ const valid = invoke(process.execPath, [cli, 'check', validManifest, '--format',
 const invalid = invoke(process.execPath, [cli, 'check', invalidManifest, '--format', 'json'], { cwd: packaged, environment: runtimeEnv, expected: 1 });
 assert.deepEqual(JSON.parse(valid.stdout).diagnostics, []);
 assert.equal(JSON.parse(valid.stdout).summary.entries, 1);
-assert.deepEqual(JSON.parse(invalid.stdout).diagnostics, consumedReport.diagnostics);
+assert.equal(consumedReport.schema_version, 1, 'the original library API must remain schema 1');
+const cliReport = JSON.parse(invalid.stdout);
+assert.equal(cliReport.schema_version, 2, 'the v0.2 CLI uses the documented new schema');
+assert.deepEqual(cliReport.diagnostics.map(({ code, severity, paths, occurrences, message }) => ({ code, severity, paths, occurrences, message })), consumedReport.diagnostics);
 const version = invoke(process.execPath, [cli, '--version'], { cwd: packaged, environment: runtimeEnv });
 assert.equal(version.stdout.trim(), moduleVersion);
 const evidence = {

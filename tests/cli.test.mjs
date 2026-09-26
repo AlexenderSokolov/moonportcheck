@@ -157,3 +157,28 @@ test('CLI unknown rule and malformed catalog commands fail with input errors', (
   }
   assert.equal(JSON.parse(invoke('explain', 'MISSING', '--format', 'json').stdout).error.code, 'RULE_UNKNOWN');
 });
+
+test('schema 2 reports retain all original members while bounding source examples', async () => {
+  const entries = [{ path: 'artifact', kind: 'file' }, { path: 'artifact/report.txt', kind: 'file' }, { path: 'artifact/report.txt', kind: 'file' }];
+  const report = JSON.parse(invoke('check', await manifest(entries), '--format', 'json').stdout);
+  assert.equal(report.schema_version, 2);
+  assert.deepEqual(report.scope, []);
+  assert.equal(report.excluded_entries, 0);
+  assert.deepEqual(report.pruned_directories, []);
+  const conflict = report.diagnostics.find(d => d.code === 'PATH_KIND_CONFLICT');
+  assert.equal(conflict.anchor, 'artifact');
+  assert.deepEqual(JSON.parse(conflict.group_key), ['PATH_KIND_CONFLICT', 'artifact']);
+  assert.deepEqual(conflict.members, [{ path: 'artifact', kind: 'file', count: 1 }, { path: 'artifact/report.txt', kind: 'file', count: 2 }]);
+  assert.equal(conflict.source_total, 2);
+  assert.equal(conflict.sources_truncated, false);
+  assert.deepEqual(conflict.source_examples, conflict.members);
+  const many = Array.from({ length: 20 }, (_, i) => ({ path: `A/${String(i).padStart(2, '0')}`, kind: 'file' }));
+  many.push({ path: 'a/z', kind: 'file' });
+  const grouped = JSON.parse(invoke('check', await manifest(many), '--format', 'json').stdout).diagnostics[0];
+  assert.equal(grouped.members.length, 21);
+  assert.equal(grouped.source_total, 21);
+  assert.equal(grouped.source_examples.length, 5);
+  assert.equal(grouped.sources_truncated, true);
+  assert.ok(grouped.source_examples.some(m => m.path.startsWith('A/')));
+  assert.ok(grouped.source_examples.some(m => m.path.startsWith('a/')));
+});
