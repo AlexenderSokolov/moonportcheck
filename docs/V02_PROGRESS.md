@@ -42,6 +42,7 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 | M12 | complete | 基线创建与增量 CI 判定 | 代码 `7d76f17` + 账本 `5e0978d`（HEAD `5e0978d1100df3e03bee898ccfa41a2397dedb39`） | [36815731750](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36815731750)：Windows/Linux 均通过（exact-SHA 5e0978d 的两个 job 均为 success） | baseline create 往返、scan --baseline 校验与 --fail-on new；扫描不完整始终 exit 3 不被基线豁免；用户已全局授权后 commit+push 并核验 CI |
 | M13 | complete | SARIF 2.1.0 与 Markdown 渲染 | 代码 `c0cad43` + 账本 `19f6dae` | [36817190756](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36817190756)：Windows/Linux 均通过（exact-SHA 19f6dae 的两个 job 均为 success） | diff --format markdown、check --report sarif（仅 artifact URI、无虚构源码行）、路径百分号编码 |
 | M14 | complete | 新格式 CLI 与 Actions 摘要 | 代码 `d1968bb` + 账本 `ea5d2d8` | [36818004906](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818004906)：Windows/Linux 均通过（exact-SHA ea5d2d8 的两个 job 均为 success） | scan/check --format markdown 结论一致、format-matrix 门禁、reports-Windows/Linux artifact 与步骤摘要 |
+| M15 | in_progress | 交叉／性质测试与规模验收 | 代码 `483dfc1`（本地已验证，远端 CI 待核验） | — | property/format-matrix、深路径、大冲突组、LOC 硬门禁 |
 | M14 | pending | 新格式 CLI 与 Actions 摘要 | — | — | 格式结论一致、报告可获取 |
 | M15 | pending | 交叉／性质测试与规模验收 | — | — | 双目标、深路径、大组、LOC 门禁 |
 | M16 | pending | v0.2 候选包、文档与完整验收 | — | — | 双系统解包、独立消费、精确 SHA CI |
@@ -189,3 +190,10 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - M14 交付「新格式 CLI 与 Actions 摘要」，实现同上一目。新增 `detailed.mbt::render_detailed_markdown`（约 95 行）与 `scripts/format-matrix.mjs`、`scripts/ci-report.mjs`，桥接 report_response/baseline_response 支持 markdown，host/bin 放开 scan/check/`diff` 的 `--format markdown`，parity 增至 **81** 份并含报告 markdown fixture。
 - 验证（Windows，2026-10-01）：核心测试 **95/95**×2 双目标；完整 run_check 通过（API 门禁、node 测试 47 项全过、parity **81** 逐字节一致、format-matrix 通过、fmt 全部通过），代码量 total **6125** 行（>3000）；本机 acceptance `passed:true`（证据 acceptance-win32-2026-10-01T05-02-43-824Z/evidence.json）。
 - **远端验收已完成**：基于用户的全局提交授权（2026-10-01），M14 代码以 `d1968bb` 提交、账本文档以 `ea5d2d8` 提交并推送至 `codex/october-v0.2`（Draft PR #1，HEAD `ea5d2d8`）；公开 CI [36818004906](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818004906) 的 windows-latest 与 ubuntu-24.04 两个 job 均 success（各自 Acceptance 步骤通过，exact-SHA ea5d2d8），且新增的「Generate report artifacts / Retain report artifacts / Retain acceptance evidence」步骤执行成功，run artifact 列表可见 `reports-Windows`（7019 B）与 `reports-Linux`（6992 B）两份报告产物。M14 由此记为 `complete`，可进入 M15（交叉／性质测试与规模验收）。
+
+### 2026-10-01：M15 本地实现与验证（远端 CI 待核验）
+
+- M15 交付「交叉／性质测试和规模验收」，纯验证里程碑（无产品代码改动）。新增 `scripts/property.mjs`（确定性种子 0xC0FFEE、60 轮随机清单，四类不变量）：①输入重排不改变渲染报告（逐字节）；②扩大排除范围不新增 findings 且 excluded_entries 不降；③报告/基线解析重建往返稳定；④同一清单建的基线再扫描（fail_on new）无 new 组（exit 0）。`scripts/bench.mjs` 扩展为 5 个规模案例：ordinary-100k（1635 ms/653 B 报告）、grouped-conflicts-100k（608 ms/**300 组**/168674 B，重复计数精确=500）、deep-paths-2000（40 层深路径，405 ms）、long-prefix-2000（1500 字符共前缀，1556 ms）、single-duplicate-10k（**1 组**重复 10 万次，occurrences=10000，105 ms）；每案例独立进程、记录 elapsed_ms/峰值 RSS/报告体积到 `artifacts/benchmark.json`。
+- run_check（ps1/sh）新增 property 与 bench 门禁，并把代码量统计改为硬门禁 `code-stats --min 3000`。
+- 验证（Windows，2026-10-01）：完整 run_check 通过（API 门禁、moon 测试 95/95×2、node 测试 47 项、parity **81** 份逐字节一致、format-matrix、property 60 轮 pass、bench 5 案例 pass、`total_code_lines=6125` ≥3000 硬门禁通过、fmt 全部通过）；本机 acceptance `passed:true`（证据 `acceptance-win32-2026-10-01T05-08-57-974Z/evidence.json`）；运行 bench 后 `artifacts/benchmark.json` 记录实际规模数据。记录于 `artifacts/m15-runcheck.out`。
+- **远端验证待核验**：M15 代码已以 `483dfc1` 提交，推送并核对该 SHA 的双平台 CI 后置 complete 进 M16（v0.2 候选包、文档与完整验收）。

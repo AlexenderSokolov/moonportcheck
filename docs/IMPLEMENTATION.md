@@ -296,3 +296,20 @@ check.sarif,snapshot.json,diff.md,summary.md}`, uploads them as the `reports-*
 ` artifact, and appends a Markdown summary to `$GITHUB_STEP_SUMMARY`. This is a
 report-obtainability sample; it does not claim that GitHub Code Scanning
 accepted the SARIF file.
+
+## M15: property tests, scale benchmark and the LOC gate
+
+No product code changes; this milestone hardens verification. `scripts/
+property.mjs` (deterministic mulberry32 seed 0xC0FFEE, 60 random manifests)
+asserts four invariants against the built bridge: (1) permuting the input
+entries leaves the rendered report byte-identical; (2) widening the exclusion
+scope never adds findings and never lowers `excluded_entries`; (3) re-auditing
+and report/baseline parse+rebuild round trips are stable; (4) a baseline built
+from a manifest, re-scanning the same manifest with `fail_on: new`, exits 0
+(no group comes back as new). `scripts/bench.mjs` now runs five cases in
+separate processes — ordinary 100k, grouped conflicts 100k (300 groups with
+exact duplicate counts), 40-level deep paths (2000), a 1500-character shared
+prefix (2000) and a single 10k-copy duplicate group — and records elapsed_ms,
+peak RSS and report bytes to `artifacts/benchmark.json`. Both scripts run in
+`run_check`/`run_check.sh` alongside parity and format-matrix, and the code
+statistics gate is now a hard floor: `node scripts/code-stats.mjs --min 3000`.
