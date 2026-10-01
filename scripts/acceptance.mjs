@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { collectEvidenceMetadata, stepsPassed } from './evidence.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -20,8 +21,9 @@ const commands = [
   ['demo', process.execPath, ['scripts/demo.mjs']],
   ['benchmark', process.execPath, ['scripts/bench.mjs']],
   ['consumer', process.execPath, ['scripts/consumer-smoke.mjs']],
+  ['package', process.execPath, ['scripts/package.mjs']],
+  ['unpack', process.execPath, ['scripts/unpack.mjs']],
 ];
-let passed = true;
 for (const [label, command, args] of commands) {
   console.log(`Acceptance: ${label}`);
   const result = execute(label, command, args);
@@ -29,7 +31,6 @@ for (const [label, command, args] of commands) {
   const { log, ...record } = result;
   steps.push(record);
   if (result.exit_code !== 0 || result.signal) {
-    passed = false;
     process.stderr.write(log);
     break;
   }
@@ -50,20 +51,19 @@ async function inventory(directory, relative = '') {
 await inventory(root);
 const sourceText = JSON.stringify(sources, null, 2) + '\n';
 await fs.writeFile(path.join(output, 'source-manifest.json'), sourceText);
-const gitRoot = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' });
-const ownGit = gitRoot.status === 0 && path.resolve(gitRoot.stdout.trim()).toLowerCase() === path.resolve(root).toLowerCase();
-const head = ownGit ? spawnSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: root, encoding: 'utf8' }) : null;
-const status = ownGit ? spawnSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }) : null;
 const toolchain = execute('toolchain', 'moon', ['version', '--all']);
 await fs.writeFile(path.join(output, 'toolchain.log'), toolchain.log);
+const { log: toolchainLog, ...toolchainRecord } = toolchain;
+steps.push(toolchainRecord);
+if (toolchain.exit_code !== 0 || toolchain.signal) process.stderr.write(toolchainLog);
+const metadata = await collectEvidenceMetadata(root);
+const passed = stepsPassed(steps, [...commands.map(([label]) => label), 'toolchain']);
 const evidence = {
-  schema_version: 1, product: 'MoonPortCheck', version: '0.1.0', passed,
-  platform: process.platform, architecture: process.arch, node: process.version,
-  generated_at: new Date().toISOString(), source_commit: head?.status === 0 ? head.stdout.trim() : null,
-  source_state: !head || head.status !== 0 ? 'uncommitted_new_project' : status?.stdout ? 'modified_worktree' : 'committed_clean',
+  schema_version: 2, ...metadata, passed,
+  generated_at: new Date().toISOString(),
   source_manifest_sha256: createHash('sha256').update(sourceText).digest('hex'),
   source_files: sources.length, toolchain_lock: JSON.parse(await fs.readFile(path.join(root, 'scripts/toolchain.lock.json'), 'utf8')),
-  steps, hosted_ci: 'not_run', public_release: 'not_published',
+  steps,
 };
 await fs.writeFile(path.join(output, 'evidence.json'), JSON.stringify(evidence, null, 2) + '\n');
 console.log(JSON.stringify({ passed, evidence: path.join(output, 'evidence.json') }, null, 2));

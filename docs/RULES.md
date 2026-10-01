@@ -52,10 +52,10 @@ JSON 或字段类型错误属于输入错误；合法条目中的坏路径属于
 | --- | --- |
 | `0` | 检查完整，已覆盖规则没有发现问题 |
 | `1` | 检查完整，存在规则发现 |
-| `2` | 参数、UTF-8、JSON 或清单结构错误 |
+| `2` | 参数、UTF-8、JSON、配置或清单结构错误 |
 | `3` | I/O 失败或扫描不完整；优先于路径发现的 `1` |
 
-扫描问题使用 `SCAN_IO_ERROR`、`SCAN_LINK_SKIPPED`、`SCAN_TYPE_UNSUPPORTED`、`SCAN_NAME_ENCODING`。输入错误使用 `ARGUMENT_ERROR`、`INPUT_ENCODING`、`INPUT_SCHEMA`、`INPUT_JSON`、`INPUT_IO_ERROR`，以错误响应输出，不伪装成成功的空报告。
+扫描问题使用 `SCAN_IO_ERROR`、`SCAN_LINK_SKIPPED`、`SCAN_TYPE_UNSUPPORTED`、`SCAN_NAME_ENCODING`。输入错误使用 `ARGUMENT_ERROR`、`INPUT_ENCODING`、`INPUT_SCHEMA`、`INPUT_JSON`、`INPUT_IO_ERROR`、`INPUT_CONFIG`、`PATTERN_INVALID`，以错误响应输出，不伪装成成功的空报告。`INPUT_CONFIG` 用于配置文件结构错误（非法 JSON、非对象、错误的 `schema_version`、未知字段）；非法排除模式单独使用 `PATTERN_INVALID`。
 
 ## 明确未覆盖
 

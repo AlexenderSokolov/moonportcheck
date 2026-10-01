@@ -2,7 +2,7 @@
 
 用 MoonBit 编写的跨平台路径预检库与离线 CLI。在把代码、数据或实验成果交给 Windows 用户前，检查文件名称、隐含目录及集合冲突。
 
-**当前版本：`0.1.0` 本地候选版。** 检查配置固定为 `portable-windows-v1`。项目尚未对外发布；这里不将本地测试等同于公开 CI、Mooncakes 安装或赛事验收通过。
+**当前源码版本：`0.2.0-dev`，尚未正式发布。** 检查配置固定为 `portable-windows-v1`。[公开仓库](https://github.com/AlexenderSokolov/moonportcheck) 持续开发，已加入规则查询、M04 详细报告、M06 配置化排除、M07 快照模型、M08 快照命令/快照检查、M09 快照差异核心、M10 `diff` 命令、M11 基线模型/分类核心、M12 `baseline create`/`scan --baseline --fail-on` 增量 CI 判定、M13 Markdown 差异表/SARIF 2.1.0 报告、M14 scan/check Markdown 报告与 CI 报告产物/步骤摘要，以及 M15 性质测试/规模验收（10 万输入、深路径、长前缀、大型单冲突组，LOC 硬门禁 ≥3000）与 M16 发布候选包（逐字节确定 ZIP，含 LICENSE/说明/校验和，双系统解包自验，候选证据保留 90 天）。各格式结论一致；新功能与验收仍按 [v0.2 计划](docs/V02_PLAN.md) 分步实施；实际里程碑与对应 CI 证据见 [执行账本](docs/V02_PROGRESS.md)。
 
 ```text
 results/A.csv + results/a.csv  → PATH_CASE_COLLISION
@@ -32,18 +32,24 @@ node bin/moonportcheck.mjs --version
 node bin/moonportcheck.mjs check examples/windows-problems.json --format text
 ```
 
-最后一个命令发现问题时退出 `1`，这是预期行为。首次安装需要访问官方工具链源。精确历史版本 URL 当前不可用，安装器使用经版本确认的归档及 `scripts/toolchain.lock.json` 中的 SHA-256；远端内容变动会停止，不能自动升级到新版。保留 `.toolchains` 缓存可用于离线恢复；构建和检查入口不自动联网安装。完整版本、归档来源与校验值以锁文件及安装器输出为准。
+最后一个命令发现问题时退出 `1`，这是预期行为。首次安装访问官方完整版本 `0.10.14%2B7d59c7ec9` 的固定归档地址，并核对 `scripts/toolchain.lock.json` 中的 SHA-256；下载或校验失败会停止，不回退 `latest`。安装器在 Linux 上恢复经过校验的原生 ELF 工具的执行权限。保留 `.toolchains` 缓存可用于离线恢复；构建和检查入口不自动联网安装。完整版本、归档来源与校验值以锁文件及安装器输出为准。
+
+`node scripts/cold-install.mjs` 使用新的临时安装目录和空下载缓存验证冷安装，保存下载哈希、完整版本及 core 构建证据。`MOONPORT_TOOLCHAIN_HOME` 和 `MOONPORT_TOOLCHAIN_CACHE` 可显式选择隔离目录；CI 直接复用其冷安装结果。CI 检查精确 PR 提交，只对 `main` push 和 PR 更新运行，常规证据保留 30 天。
 
 ## 检查目录或清单
 
 ```text
-moonportcheck scan ROOT [--format text|json]
-moonportcheck check MANIFEST [--format text|json]
+moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--format text|json]
+moonportcheck snapshot ROOT [--config FILE] [--exclude PATTERN]...
+moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json]
+moonportcheck diff BEFORE.json AFTER.json [--format text|json]
 moonportcheck --help
 moonportcheck --version
 ```
 
 源码环境用 `node bin/moonportcheck.mjs` 代替 `moonportcheck`；打包后的 bin 入口同名。
+
+`snapshot ROOT` 把真实目录导出为固定 JSON 快照文档（`{"format":"moonportcheck-snapshot","version":1,...}`，不接受 `--format`）：完整导出退出 `0`、扫描不完整退出 `3`。`check MANIFEST` 同时接受原数组清单与该快照文档：检查快照时继承其排除范围，`--config`/`--exclude` 的额外排除只能缩小范围，不完整快照始终保持不完整（退出 `3`），报告 `source` 为 `"snapshot"`。`diff BEFORE.json AFTER.json` 比较两份快照：退出 `0`=无变化、`1`=有变化、`2`=文档损坏或范围不同、`3`=任一输入不完整，绝不推测重命名或内容变化。
 
 ```powershell
 # 实际目录：包含隐藏项，输出相对于根目录的路径。
@@ -64,6 +70,14 @@ node bin/moonportcheck.mjs check examples/windows-problems.json --format json
 
 中间目录不必显式列出。反斜杠不会被转换为分隔符。合法清单里的非法路径属于规则发现；损坏 JSON 或字段类型错误属于输入错误。
 
+可以用 `--exclude PATTERN`（可重复）或 `--config FILE` 缩小检查范围，两者取并集；模式语法与含义见 [PATTERNS.md](docs/PATTERNS.md)。配置文件是带版本号的 JSON，`schema_version` 必须为 `1`：
+
+```json
+{ "schema_version": 1, "exclude": ["**/cache", "*.tmp"] }
+```
+
+被排除条目不进入审计，也不产生诊断；被整棵排除的目录不再枚举其子树（扫描）。任何人不得隐式读取 `.gitignore`。配置结构错误退出 `2`，无法读取或非法 UTF-8 分别退出 `3` 与 `2`。
+
 | 退出码 | 含义 |
 | --- | --- |
 | `0` | 检查完整，已覆盖规则未发现问题 |
@@ -71,7 +85,7 @@ node bin/moonportcheck.mjs check examples/windows-problems.json --format json
 | `2` | 参数、编码或清单结构错误 |
 | `3` | I/O 失败或扫描不完整，优先于 `1` |
 
-报告写入标准输出。JSON 报告具有 `schema_version`、`profile`、`source`、`complete`、`summary`、`diagnostics` 和 `limitations`；每组诊断含 `code`、`severity`、`paths`、`occurrences`、`message`。诊断分组与排序固定，不附时间戳。错误使用独立错误响应，不输出误导性的空成功报告。
+报告写入标准输出。v0.2 CLI 的审计和错误 JSON 明确使用 **schema 2**。审计报告保留原有平面字段，详细诊断增加原始来源、成员计数和稳定组身份；扫描问题独立放在 `scan_issues`，不再混入 `diagnostics`。`scope`、`excluded_entries`、`pruned_directories` 在 M06 起反映实际排除范围：`scope` 为去重排序后的有效模式，`excluded_entries` 只统计已知输入中实际被排除的条目，`pruned_directories` 列出最顶层被剪枝目录。诊断分组与排序固定，不附时间戳。错误使用独立错误响应，不输出误导性的空成功报告。字段与消费迁移见 [SCHEMA2.md](docs/SCHEMA2.md)。
 
 ## 作为 MoonBit 库使用
 
@@ -86,7 +100,9 @@ node bin/moonportcheck.mjs check examples/windows-problems.json --format json
 | `render_json(Report)` | 生成 JSON 报告 |
 | `render_text(Report)` | 生成可读文本报告 |
 
-纯库只检查传入集合，不访问文件系统。CLI 负责在报告中补充来源与扫描完整性。核心库的 JS 与 wasm-gc 行为应通过同一组测试和报告比对。
+这些原接口及 `Report` 保持 v1 行为，`render_json` 仍输出 schema 1，已有库消费者无需修改。需要详细报告时，使用不透明的 `AuditOptions` 及 `default_audit_options()`，调用 `audit_with_options(entries, options)` 返回 `DetailedReport`，再用 `render_detailed_json` / `render_detailed_text` 渲染。`ScanIssue` 与 `with_scan_issues` 用于附入扫描完整性问题。
+
+详细诊断的 `members` 保留全量原始 `(path, kind, count)`，`source_examples` 最多展示 5 条，不能代替完整成员或组身份；`occurrences` 保留旧含义。纯库只检查传入集合，不访问文件系统。CLI 使用详细接口汇总来源与扫描完整性。核心库的 JS 与 wasm-gc 行为通过同一组测试和报告比对；新旧接口选择及字段说明见 [schema 2 迁移说明](docs/SCHEMA2.md)。
 
 ## 演示与验证
 
@@ -114,7 +130,7 @@ bash run_acceptance.sh
 | [windows-problems.json](examples/windows-problems.json) | 大小写冲突、设备保留名、尾点 | `1` |
 | [hierarchy-conflicts.json](examples/hierarchy-conflicts.json) | 三次重复、隐含目录大小写冲突、文件与目录冲突 | `1` |
 
-`run_check` 汇总工具链检查、格式检查、构建、双目标核心测试、Node CLI 测试和跨目标报告比对。`run_acceptance` 包含这些检查，并依次运行演示、十万条路径规模测试、独立库消费及不带编译器的 CLI 运行验证；日志、工具链身份和源码文件哈希保存在 `artifacts/acceptance-<平台>-<时间>/`。规模测试也可单独运行 `node scripts/bench.mjs`；时间与内存以当次输出为准。实际结果及验证边界见 [ACCEPTANCE.md](docs/ACCEPTANCE.md)。公开 CI、Mooncakes 发布和十月活动验收需要后续发布步骤与实际结果。
+`run_check` 汇总工具链检查、格式检查、构建、双目标核心测试、Node CLI 测试和跨目标报告比对。`run_acceptance` 包含这些检查，并依次运行演示、十万条路径规模测试、独立库消费及不带编译器的 CLI 运行验证；日志、工具链身份和源码文件哈希保存在 `artifacts/acceptance-<平台>-<时间>/`。规模测试也可单独运行 `node scripts/bench.mjs`；时间与内存以当次输出为准。v0.1 本地结果及验证边界见 [ACCEPTANCE.md](docs/ACCEPTANCE.md)，v0.2 各提交的实际检查和公开 CI 见 [执行账本](docs/V02_PROGRESS.md)。Mooncakes 发布和十月活动验收仍需后续授权与实际结果。
 
 ## 覆盖范围
 
@@ -125,3 +141,14 @@ bash run_acceptance.sh
 `complete=true` 表示本次输入在已覆盖规则内检查完整；清单检查不证明实际目录与清单一致，退出 `0` 不保证所有 Windows 环境都能成功复制或打开。
 
 设计与长期维护约定见 [PROJECT.md](PROJECT.md)，申报草稿见 [APPLICATION.md](docs/APPLICATION.md)，版本变更见 [CHANGELOG.md](CHANGELOG.md)。许可证为 [Apache-2.0](LICENSE)。
+
+## 查询规则原因与建议
+
+```text
+moonportcheck rules --format json
+moonportcheck explain NAME_RESERVED
+```
+
+`rules` 列出 11 个审计规则和 4 个扫描完整性问题；`explain CODE` 精确匹配编号并显示原因、触发例子和整改建议。两者支持 text/JSON，JSON 为稳定排序的规则数组，查询单条时数组长度为 1。未知编号退出 `2`，已知规则查询退出 `0`；这不表示执行了目录检查。
+
+库还提供 `parse_pattern` 与 `pattern_matches` 进行纯路径范围匹配，M06 再以 `parse_scope` / `entry_excluded` / `audit_with_exclusions` 接入配置与 CLI 排除，完整语义见 [PATTERNS.md](docs/PATTERNS.md)。M07 增加快照模型 `Snapshot` 与 `build_snapshot` / `parse_snapshot` / `render_snapshot_json`，把唯一排序条目、范围、完整性与扫描问题持久化为可往返的独立 JSON 文档（不含内容、时间戳或主机绝对路径），供后续快照命令与差异比较使用。

@@ -129,3 +129,338 @@ test('CLI report order is deterministic across shuffled input', async () => {
   assert.equal(first.status, 1);
   assert.equal(second.stdout, first.stdout);
 });
+
+test('CLI rule catalog explains every audit and scan code with remediation', () => {
+  const listed = invoke('rules', '--format', 'json');
+  assert.equal(listed.status, 0, listed.stdout);
+  const catalog = JSON.parse(listed.stdout);
+  assert.equal(catalog.length, 15);
+  const codes = catalog.map(r => r.code);
+  assert.deepEqual(codes, [...new Set(codes)].sort());
+  for (const rule of catalog) {
+    assert.ok(rule.reason.length > 0);
+    assert.ok(rule.suggestion.length > 0);
+    assert.ok(rule.examples.length > 0);
+    const explained = invoke('explain', rule.code, '--format', 'json');
+    assert.equal(explained.status, 0);
+    assert.deepEqual(JSON.parse(explained.stdout), [rule]);
+  }
+  assert.match(invoke('rules').stdout, /PATH_KIND_CONFLICT/);
+  assert.match(invoke('explain', 'NAME_RESERVED').stdout, /CON/);
+});
+
+test('CLI unknown rule and malformed catalog commands fail with input errors', () => {
+  for (const args of [['explain', 'MISSING'], ['rules', 'extra'], ['explain'], ['explain', 'NAME_RESERVED', 'extra']]) {
+    const result = invoke(...args, '--format', 'json');
+    assert.equal(result.status, 2, JSON.stringify(args));
+    assert.equal(JSON.parse(result.stdout).complete, false);
+  }
+  assert.equal(JSON.parse(invoke('explain', 'MISSING', '--format', 'json').stdout).error.code, 'RULE_UNKNOWN');
+});
+
+test('schema 2 reports retain all original members while bounding source examples', async () => {
+  const entries = [{ path: 'artifact', kind: 'file' }, { path: 'artifact/report.txt', kind: 'file' }, { path: 'artifact/report.txt', kind: 'file' }];
+  const report = JSON.parse(invoke('check', await manifest(entries), '--format', 'json').stdout);
+  assert.equal(report.schema_version, 2);
+  assert.deepEqual(report.scope, []);
+  assert.equal(report.excluded_entries, 0);
+  assert.deepEqual(report.pruned_directories, []);
+  const conflict = report.diagnostics.find(d => d.code === 'PATH_KIND_CONFLICT');
+  assert.equal(conflict.anchor, 'artifact');
+  assert.deepEqual(JSON.parse(conflict.group_key), ['PATH_KIND_CONFLICT', 'artifact']);
+  assert.deepEqual(conflict.members, [{ path: 'artifact', kind: 'file', count: 1 }, { path: 'artifact/report.txt', kind: 'file', count: 2 }]);
+  assert.equal(conflict.source_total, 2);
+  assert.equal(conflict.sources_truncated, false);
+  assert.deepEqual(conflict.source_examples, conflict.members);
+  const many = Array.from({ length: 20 }, (_, i) => ({ path: `A/${String(i).padStart(2, '0')}`, kind: 'file' }));
+  many.push({ path: 'a/z', kind: 'file' });
+  const grouped = JSON.parse(invoke('check', await manifest(many), '--format', 'json').stdout).diagnostics[0];
+  assert.equal(grouped.members.length, 21);
+  assert.equal(grouped.source_total, 21);
+  assert.equal(grouped.source_examples.length, 5);
+  assert.equal(grouped.sources_truncated, true);
+  assert.ok(grouped.source_examples.some(m => m.path.startsWith('A/')));
+  assert.ok(grouped.source_examples.some(m => m.path.startsWith('a/')));
+});
+
+test('CLI check --exclude filters entries and reports the scope', async () => {
+  const filename = await manifest([
+    { path: 'a.tmp', kind: 'file' },
+    { path: 'cache', kind: 'directory' },
+    { path: 'cache/x', kind: 'file' },
+    { path: 'README', kind: 'file' },
+  ]);
+  const result = invoke('check', filename, '--exclude', '*.tmp', '--exclude', 'cache/', '--format', 'json');
+  assert.equal(result.status, 0, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.deepEqual(report.scope, ['*.tmp', 'cache/']);
+  assert.equal(report.excluded_entries, 3);
+  assert.deepEqual(report.pruned_directories, ['cache']);
+  assert.equal(report.summary.entries, 1);
+  assert.deepEqual(report.diagnostics, []);
+});
+
+test('CLI --config supplies exclusions and unifies with repeated --exclude', async () => {
+  const root = await fixture();
+  const config = path.join(root, 'moonportcheck.json');
+  await fs.writeFile(config, '{"schema_version":1,"exclude":["*.tmp","cache/"]}');
+  const filename = await manifest([
+    { path: 'a.tmp', kind: 'file' },
+    { path: 'cache', kind: 'directory' },
+    { path: 'cache/x', kind: 'file' },
+    { path: 'notes/a.tmp', kind: 'file' },
+    { path: 'README', kind: 'file' },
+  ]);
+  const result = invoke('check', filename, '--config', config, '--exclude', '*.tmp', '--format', 'json');
+  assert.equal(result.status, 0, result.stdout);
+  const report = JSON.parse(result.stdout);
+  // Duplicate literal patterns collapse; the union of config and CLI stays.
+  assert.deepEqual(report.scope, ['*.tmp', 'cache/']);
+  assert.equal(report.excluded_entries, 3);
+  assert.deepEqual(report.pruned_directories, ['cache']);
+  assert.equal(report.summary.entries, 2);
+});
+
+test('CLI config errors exit 2 and read failures exit 3', async () => {
+  const root = await fixture();
+  const filename = await manifest([{ path: 'x', kind: 'file' }]);
+  for (const [contents, code] of [
+    ['{"schema_version":2,"exclude":[]}', 'INPUT_CONFIG'],
+    ['{"exclude":[]}', 'INPUT_CONFIG'],
+    ['{"schema_version":1,"exclude":["a[b]"]}', 'PATTERN_INVALID'],
+    ['{"schema_version":1,"exclude":["*.tmp"],"extra":1}', 'INPUT_CONFIG'],
+    ['not json', 'INPUT_CONFIG'],
+    ['42', 'INPUT_CONFIG'],
+    ['{"schema_version":1,"exclude":5}', 'INPUT_CONFIG'],
+  ]) {
+    const file = path.join(root, `config-${contents.length}-${Math.random()}`);
+    await fs.writeFile(file, contents);
+    const result = invoke('check', filename, '--config', file, '--format', 'json');
+    assert.equal(result.status, 2, contents);
+    assert.match(result.stdout, new RegExp(code), contents);
+    assert.doesNotThrow(() => JSON.parse(result.stdout));
+  }
+  const missing = invoke('check', filename, '--config', path.join(root, 'absent'), '--format', 'json');
+  assert.equal(missing.status, 3, missing.stdout);
+  assert.match(missing.stdout, /INPUT_IO_ERROR/);
+  // Under --format text the same error is rendered as text, not a JSON payload.
+  const textFile = path.join(root, 'config-text');
+  await fs.writeFile(textFile, '{"schema_version":2,"exclude":[]}');
+  const textResult = invoke('check', filename, '--config', textFile, '--format', 'text');
+  assert.equal(textResult.status, 2, textResult.stdout);
+  assert.doesNotThrow(() => {
+    if (textResult.stdout.trim().startsWith('{')) JSON.parse(textResult.stdout);
+  });
+  assert.match(textResult.stdout, /INPUT_CONFIG/);
+  assert.match(textResult.stdout, /MoonPortCheck error/);
+});
+
+test('CLI scan and check agree under the same exclusions', async () => {
+  const root = await fixture();
+  await fs.mkdir(path.join(root, 'cache'));
+  await fs.mkdir(path.join(root, 'build'));
+  await fs.mkdir(path.join(root, 'src'));
+  await fs.writeFile(path.join(root, 'cache', 'x.bin'), '');
+  await fs.writeFile(path.join(root, 'build', 'ok.txt'), '');
+  await fs.writeFile(path.join(root, 'src', 'a.txt'), '');
+  const args = ['--exclude', 'cache/', '--exclude', 'build'];
+  const scanned = invoke('scan', root, ...args, '--format', 'json');
+  assert.equal(scanned.status, 0, scanned.stdout);
+  const scanReport = JSON.parse(scanned.stdout);
+  assert.equal(scanReport.source, 'scan');
+  // A pruned directory is still recorded as an entry but its subtree is not.
+  assert.deepEqual(scanReport.pruned_directories, ['build', 'cache']);
+  const filename = await manifest([
+    { path: 'build', kind: 'directory' },
+    { path: 'cache', kind: 'directory' },
+    { path: 'src', kind: 'directory' },
+    { path: 'src/a.txt', kind: 'file' },
+  ]);
+  const checked = JSON.parse(invoke('check', filename, ...args, '--format', 'json').stdout);
+  assert.deepEqual(scanReport.diagnostics, checked.diagnostics);
+  assert.deepEqual(scanReport.summary, checked.summary);
+  assert.deepEqual(scanReport.scope, checked.scope);
+  assert.deepEqual(scanReport.pruned_directories, checked.pruned_directories);
+  assert.equal(checked.excluded_entries, 2);
+});
+
+test('CLI snapshot exports a snapshot and check re-imports it with shrink-only extras', async () => {
+  const root = await fixture();
+  await fs.mkdir(path.join(root, 'cache'));
+  await fs.writeFile(path.join(root, 'cache', 'x.bin'), '');
+  await fs.writeFile(path.join(root, 'a.tmp'), '');
+  await fs.mkdir(path.join(root, 'src'));
+  await fs.writeFile(path.join(root, 'src', 'ok.txt'), '');
+  // snapshot always writes the fixed document; --format is rejected.
+  const rejected = invoke('snapshot', root, '--format', 'json');
+  assert.equal(rejected.status, 2);
+  assert.match(rejected.stdout, /ARGUMENT_ERROR/);
+  const exported = invoke('snapshot', root, '--exclude', '*.tmp', '--exclude', 'cache/');
+  assert.equal(exported.status, 0, exported.stdout);
+  const doc = JSON.parse(exported.stdout);
+  assert.equal(doc.format, 'moonportcheck-snapshot');
+  assert.equal(doc.version, 1);
+  assert.equal(doc.complete, true);
+  assert.deepEqual(doc.scope, ['*.tmp', 'cache/']);
+  assert.deepEqual(doc.entries.map(e => e.path), ['a.tmp', 'cache', 'src', 'src/ok.txt']);
+  const snapshotFile = path.join(root, 'snapshot.json');
+  await fs.writeFile(snapshotFile, exported.stdout);
+  const checked = JSON.parse(invoke('check', snapshotFile, '--format', 'json').stdout);
+  assert.equal(checked.source, 'snapshot');
+  assert.deepEqual(checked.scope, ['*.tmp', 'cache/']);
+  assert.equal(checked.summary.entries, 2);
+  assert.equal(checked.excluded_entries, 2);
+  assert.deepEqual(checked.pruned_directories, ['cache']);
+  const narrowed = JSON.parse(invoke('check', snapshotFile, '--exclude', 'src/', '--format', 'json').stdout);
+  assert.deepEqual(narrowed.scope, ['*.tmp', 'cache/', 'src/']);
+  assert.equal(narrowed.summary.entries, 0);
+  assert.deepEqual(narrowed.pruned_directories, ['cache', 'src']);
+});
+
+test('CLI check of an incomplete snapshot stays incomplete and exits 3', async () => {
+  const root = await fixture();
+  const doc = {
+    format: 'moonportcheck-snapshot',
+    version: 1,
+    profile: 'portable-windows-v1',
+    complete: false,
+    scope: [],
+    entries: [{ path: 'x.txt', kind: 'file' }],
+    scan_issues: [{ code: 'SCAN_LINK_SKIPPED', path: 'x.txt', message: 'A symbolic link was not followed.' }],
+  };
+  const file = path.join(root, 'snap.json');
+  await fs.writeFile(file, JSON.stringify(doc));
+  const result = invoke('check', file, '--format', 'json');
+  assert.equal(result.status, 3, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.complete, false);
+  assert.equal(report.source, 'snapshot');
+  assert.equal(report.scan_issues.length, 1);
+  const mismatched = { ...doc, profile: 'other', complete: true, scan_issues: [] };
+  const badFile = path.join(root, 'bad.json');
+  await fs.writeFile(badFile, JSON.stringify(mismatched));
+  const bad = invoke('check', badFile, '--format', 'json');
+  assert.equal(bad.status, 2);
+  assert.match(bad.stdout, /INPUT_SCHEMA/);
+});
+
+const snapshotDoc = (overrides) => JSON.stringify({
+  format: 'moonportcheck-snapshot',
+  version: 1,
+  profile: 'portable-windows-v1',
+  complete: true,
+  scope: [],
+  entries: [],
+  scan_issues: [],
+  ...overrides,
+});
+
+test('CLI diff compares snapshots with exit 0/1/2/3', async () => {
+  const root = await fixture();
+  const before = path.join(root, 'before.json');
+  const after = path.join(root, 'after.json');
+  const clean = path.join(root, 'clean.json');
+  const scoped = path.join(root, 'scoped.json');
+  const partial = path.join(root, 'partial.json');
+  await fs.writeFile(before, snapshotDoc({ entries: [{ path: 'a.txt', kind: 'file' }, { path: 'dir', kind: 'directory' }] }));
+  await fs.writeFile(after, snapshotDoc({ entries: [{ path: 'dir', kind: 'directory' }] }));
+  await fs.writeFile(clean, snapshotDoc({ entries: [{ path: 'dir', kind: 'directory' }] }));
+  await fs.writeFile(scoped, snapshotDoc({ scope: ['*.tmp'] }));
+  await fs.writeFile(partial, snapshotDoc({ complete: false, scan_issues: [{ code: 'SCAN_LINK_SKIPPED', path: 'x.txt', message: 'Not followed.' }] }));
+  const changed = invoke('diff', before, after, '--format', 'json');
+  assert.equal(changed.status, 1, changed.stdout);
+  assert.deepEqual(JSON.parse(changed.stdout).changes.map(c => c.kind), ['removed']);
+  const same = invoke('diff', after, clean, '--format', 'json');
+  assert.equal(same.status, 0, same.stdout);
+  assert.deepEqual(JSON.parse(same.stdout).changes, []);
+  const text = invoke('diff', before, after);
+  assert.equal(text.status, 1, text.stdout);
+  assert.match(text.stdout, /- a\.txt \(removed, file\)/);
+  const mismatch = invoke('diff', after, scoped, '--format', 'json');
+  assert.equal(mismatch.status, 2, mismatch.stdout);
+  assert.match(mismatch.stdout, /INPUT_SCHEMA/);
+  const incomplete = invoke('diff', clean, partial, '--format', 'json');
+  assert.equal(incomplete.status, 3, incomplete.stdout);
+  assert.equal(JSON.parse(incomplete.stdout).complete, false);
+  const badArgs = invoke('diff', after, '--config', 'c.json');
+  assert.equal(badArgs.status, 2);
+  assert.match(badArgs.stdout, /ARGUMENT_ERROR/);
+});
+
+test('CLI baseline create writes a fixed document and scan --baseline gates exits', async () => {
+  const root = await fixture();
+  const reportFile = path.join(root, 'report.json');
+  const baselineFile = path.join(root, 'baseline.json');
+  const report = invoke('scan', root, '--format', 'json');
+  assert.equal(report.status, 0, report.stdout);
+  await fs.writeFile(reportFile, report.stdout);
+  const created = invoke('baseline', 'create', reportFile);
+  assert.equal(created.status, 0, created.stdout);
+  const baseline = JSON.parse(created.stdout);
+  assert.equal(baseline.format, 'moonportcheck-baseline');
+  await fs.writeFile(baselineFile, created.stdout);
+  // Re-scan the same empty tree against the baseline: no findings → 0 (default and fail-on)
+  const same = invoke('scan', root, '--baseline', baselineFile, '--fail-on', 'new', '--format', 'json');
+  assert.equal(same.status, 0, same.stdout);
+  // A fresh finding makes --fail-on new return 1
+  const freshRoot = await fixture();
+  await fs.writeFile(path.join(freshRoot, 'CON.txt'), 'x');
+  const fresh = invoke('scan', freshRoot, '--baseline', baselineFile, '--fail-on', 'new', '--format', 'json');
+  assert.equal(fresh.status, 1, fresh.stdout);
+  // Default judgment (no --fail-on) also returns 1 because findings exist
+  const allFindings = invoke('scan', freshRoot, '--baseline', baselineFile, '--format', 'json');
+  assert.equal(allFindings.status, 1, allFindings.stdout);
+  // Incomplete scan is never exempted by a baseline
+  const broken = invoke('scan', path.join(root, 'missing'), '--baseline', baselineFile, '--fail-on', 'new');
+  assert.equal(broken.status, 3, broken.stdout);
+  // Baseline create rejects an incomplete report
+  const badReportFile = path.join(root, 'bad.json');
+  await fs.writeFile(badReportFile, '{broken');
+  const badCreate = invoke('baseline', 'create', badReportFile);
+  assert.equal(badCreate.status, 2, badCreate.stdout);
+});
+
+test('CLI diff --format markdown and check --report sarif render new formats', async () => {
+  const root = await fixture();
+  const snapshotFile = path.join(root, 'snapshot.json');
+  const snap = invoke('snapshot', root);
+  assert.equal(snap.status, 0, snap.stdout);
+  await fs.writeFile(snapshotFile, snap.stdout);
+  const md = invoke('diff', snapshotFile, snapshotFile, '--format', 'markdown');
+  assert.equal(md.status, 0, md.stdout);
+  assert.match(md.stdout, /^# MoonPortCheck diff/);
+  assert.match(md.stdout, /No differences\./);
+  // A manifest with a finding exits 1 for JSON format and emits SARIF for sarif
+  const manifestFile = await manifest([{ path: 'CON.txt', kind: 'file' }]);
+  const sarif = invoke('check', manifestFile, '--report', 'sarif');
+  assert.equal(sarif.status, 1, sarif.stdout);
+  const doc = JSON.parse(sarif.stdout);
+  assert.equal(doc.version, '2.1.0');
+  assert.equal(doc.runs[0].tool.driver.name, 'MoonPortCheck');
+  assert.ok(doc.runs[0].results.some(r => r.ruleId === 'NAME_RESERVED' && r.locations[0].physicalLocation.artifactLocation.uri === 'CON.txt'));
+  assert.equal(doc.runs[0].invocations[0].executionSuccessful, true);
+});
+
+test('CLI scan and check --format markdown reach the same conclusion as json', async () => {
+  const root = await fixture();
+  await fs.writeFile(path.join(root, 'CON.txt'), 'x');
+  const scanMd = invoke('scan', root, '--format', 'markdown');
+  const scanJson = invoke('scan', root, '--format', 'json');
+  assert.equal(scanMd.status, 1, scanMd.stdout);
+  assert.equal(scanMd.status, scanJson.status);
+  assert.match(scanMd.stdout, /^# MoonPortCheck report/);
+  assert.match(scanMd.stdout, /\| `NAME_RESERVED` \| `CON\.txt` \|/);
+  const cleanRoot = await fixture();
+  const cleanMd = invoke('scan', cleanRoot, '--format', 'markdown');
+  assert.equal(cleanMd.status, 0, cleanStdoutOr(cleanMd));
+  assert.match(cleanMd.stdout, /\*\*Status:\*\* `PASS \(covered rules only\)`/);
+  // check on a manifest with --report sarif vs --format markdown share exit 1
+  const manifestFile = await manifest([{ path: 'CON.txt', kind: 'file' }]);
+  const mk = invoke('check', manifestFile, '--format', 'markdown');
+  assert.equal(mk.status, 1, mk.stdout);
+  assert.match(mk.stdout, /^# MoonPortCheck report/);
+});
+
+function cleanStdoutOr(result) {
+  return result.stdout || result.stderr || '';
+}

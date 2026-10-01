@@ -8,15 +8,171 @@ import {
 // Values
 pub fn audit(Array[PathEntry]) -> Report
 
+pub fn audit_snapshot(Snapshot, Array[String]) -> Result[DetailedReport, InputError]
+
+pub fn audit_with_exclusions(Array[PathEntry], AuditOptions, ExclusionScope) -> DetailedReport
+
+pub fn audit_with_options(Array[PathEntry], AuditOptions) -> DetailedReport
+
+pub fn build_baseline(DetailedReport) -> Result[Baseline, InputError]
+
+pub fn build_snapshot(Array[PathEntry], Array[ScanIssue], Array[String]) -> Result[Snapshot, InputError]
+
+pub fn default_audit_options() -> AuditOptions
+
+pub fn diff_snapshots(Snapshot, Snapshot) -> Result[SnapshotDiff, InputError]
+
+pub fn diff_with_baseline(Baseline, DetailedReport) -> BaselineDiff
+
+pub fn effective_scope_patterns(ExclusionScope) -> Array[String]
+
+pub fn entry_excluded(ExclusionScope, PathEntry) -> Bool
+
+pub fn explain(String) -> RuleInfo?
+
+pub fn parse_baseline(String) -> Result[Baseline, InputError]
+
+pub fn parse_detailed_report(String) -> Result[DetailedReport, InputError]
+
 pub fn parse_manifest(String) -> Result[Array[PathEntry], InputError]
+
+pub fn parse_pattern(String) -> Result[PathPattern, InputError]
+
+pub fn parse_scope(Array[String]) -> Result[ExclusionScope, InputError]
+
+pub fn parse_snapshot(String) -> Result[Snapshot, InputError]
+
+pub fn pattern_matches(PathPattern, PathEntry) -> Bool
+
+pub fn render_baseline_diff_json(BaselineDiff) -> String
+
+pub fn render_baseline_diff_text(BaselineDiff) -> String
+
+pub fn render_baseline_json(Baseline) -> String
+
+pub fn render_check_sarif(DetailedReport) -> String
+
+pub fn render_detailed_json(DetailedReport) -> String
+
+pub fn render_detailed_markdown(DetailedReport) -> String
+
+pub fn render_detailed_text(DetailedReport) -> String
 
 pub fn render_json(Report) -> String
 
+pub fn render_rules_json(Array[RuleInfo]) -> String
+
+pub fn render_rules_text(Array[RuleInfo]) -> String
+
+pub fn render_snapshot_diff_json(SnapshotDiff) -> String
+
+pub fn render_snapshot_diff_markdown(SnapshotDiff) -> String
+
+pub fn render_snapshot_diff_text(SnapshotDiff) -> String
+
+pub fn render_snapshot_json(Snapshot) -> String
+
 pub fn render_text(Report) -> String
+
+pub fn rules() -> Array[RuleInfo]
+
+pub fn rules_version() -> String
+
+pub fn uri_escape_path(String) -> String
+
+pub fn with_scan_issues(DetailedReport, Array[ScanIssue]) -> DetailedReport
 
 // Errors
 
 // Types and methods
+pub struct AuditOptions {
+  // private fields
+}
+
+pub struct Baseline {
+  format : String
+  schema_version : Int
+  profile : String
+  rules_version : String
+  scope : Array[String]
+  groups : Array[BaselineGroup]
+} derive(Eq, @debug.Debug)
+pub fn Baseline::equal(Self, Self) -> Bool
+pub fn Baseline::not_equal(Self, Self) -> Bool
+pub fn Baseline::to_repr(Self) -> @debug.Repr
+
+pub struct BaselineChange {
+  code : String
+  anchor : String
+  status : BaselineStatus
+  members : Array[SourceMember]
+  source_total : Int
+} derive(Eq, @debug.Debug)
+pub fn BaselineChange::equal(Self, Self) -> Bool
+pub fn BaselineChange::not_equal(Self, Self) -> Bool
+pub fn BaselineChange::to_repr(Self) -> @debug.Repr
+
+pub struct BaselineDiff {
+  changes : Array[BaselineChange]
+} derive(Eq, @debug.Debug)
+pub fn BaselineDiff::equal(Self, Self) -> Bool
+pub fn BaselineDiff::not_equal(Self, Self) -> Bool
+pub fn BaselineDiff::to_repr(Self) -> @debug.Repr
+
+pub struct BaselineGroup {
+  code : String
+  anchor : String
+  members : Array[SourceMember]
+  source_total : Int
+} derive(Eq, @debug.Debug)
+pub fn BaselineGroup::equal(Self, Self) -> Bool
+pub fn BaselineGroup::not_equal(Self, Self) -> Bool
+pub fn BaselineGroup::to_repr(Self) -> @debug.Repr
+
+pub enum BaselineStatus {
+  New
+  Existing
+  Worsened
+  Resolved
+} derive(Eq, @debug.Debug)
+pub fn BaselineStatus::equal(Self, Self) -> Bool
+pub fn BaselineStatus::not_equal(Self, Self) -> Bool
+pub fn BaselineStatus::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DetailedDiagnostic {
+  code : String
+  severity : String
+  paths : Array[String]
+  occurrences : Int
+  message : String
+  anchor : String
+  group_key : String
+  members : Array[SourceMember]
+  source_examples : Array[SourceMember]
+  source_total : Int
+  sources_truncated : Bool
+} derive(Eq, @debug.Debug)
+pub fn DetailedDiagnostic::equal(Self, Self) -> Bool
+pub fn DetailedDiagnostic::not_equal(Self, Self) -> Bool
+pub fn DetailedDiagnostic::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DetailedReport {
+  schema_version : Int
+  profile : String
+  source : String
+  complete : Bool
+  summary : Summary
+  diagnostics : Array[DetailedDiagnostic]
+  limitations : Array[String]
+  scan_issues : Array[ScanIssue]
+  scope : Array[String]
+  excluded_entries : Int
+  pruned_directories : Array[String]
+} derive(Eq, @debug.Debug)
+pub fn DetailedReport::equal(Self, Self) -> Bool
+pub fn DetailedReport::not_equal(Self, Self) -> Bool
+pub fn DetailedReport::to_repr(Self) -> @debug.Repr
+
 pub(all) struct Diagnostic {
   code : String
   severity : String
@@ -28,6 +184,16 @@ pub fn Diagnostic::equal(Self, Self) -> Bool
 pub fn Diagnostic::not_equal(Self, Self) -> Bool
 pub fn Diagnostic::to_repr(Self) -> @debug.Repr
 
+pub enum DiffKind {
+  Added
+  Removed
+  KindChanged
+  CaseChanged
+} derive(Eq, @debug.Debug)
+pub fn DiffKind::equal(Self, Self) -> Bool
+pub fn DiffKind::not_equal(Self, Self) -> Bool
+pub fn DiffKind::to_repr(Self) -> @debug.Repr
+
 pub(all) enum EntryKind {
   File
   Directory
@@ -35,6 +201,10 @@ pub(all) enum EntryKind {
 pub fn EntryKind::equal(Self, Self) -> Bool
 pub fn EntryKind::not_equal(Self, Self) -> Bool
 pub fn EntryKind::to_repr(Self) -> @debug.Repr
+
+pub struct ExclusionScope {
+  // private fields
+}
 
 pub(all) struct InputError {
   code : String
@@ -52,6 +222,10 @@ pub fn PathEntry::equal(Self, Self) -> Bool
 pub fn PathEntry::not_equal(Self, Self) -> Bool
 pub fn PathEntry::to_repr(Self) -> @debug.Repr
 
+pub struct PathPattern {
+  // private fields
+}
+
 pub(all) struct Report {
   schema_version : Int
   profile : String
@@ -64,6 +238,65 @@ pub(all) struct Report {
 pub fn Report::equal(Self, Self) -> Bool
 pub fn Report::not_equal(Self, Self) -> Bool
 pub fn Report::to_repr(Self) -> @debug.Repr
+
+pub(all) struct RuleInfo {
+  code : String
+  title : String
+  reason : String
+  examples : Array[String]
+  suggestion : String
+} derive(Eq, @debug.Debug)
+pub fn RuleInfo::equal(Self, Self) -> Bool
+pub fn RuleInfo::not_equal(Self, Self) -> Bool
+pub fn RuleInfo::to_repr(Self) -> @debug.Repr
+
+pub(all) struct ScanIssue {
+  code : String
+  path : String
+  message : String
+} derive(Eq, @debug.Debug)
+pub fn ScanIssue::equal(Self, Self) -> Bool
+pub fn ScanIssue::not_equal(Self, Self) -> Bool
+pub fn ScanIssue::to_repr(Self) -> @debug.Repr
+
+pub struct Snapshot {
+  profile : String
+  complete : Bool
+  scope : Array[String]
+  entries : Array[PathEntry]
+  scan_issues : Array[ScanIssue]
+} derive(Eq, @debug.Debug)
+pub fn Snapshot::equal(Self, Self) -> Bool
+pub fn Snapshot::not_equal(Self, Self) -> Bool
+pub fn Snapshot::to_repr(Self) -> @debug.Repr
+
+pub struct SnapshotChange {
+  kind : DiffKind
+  path : String
+  paired_with : String
+  before_kind : String
+  after_kind : String
+} derive(Eq, @debug.Debug)
+pub fn SnapshotChange::equal(Self, Self) -> Bool
+pub fn SnapshotChange::not_equal(Self, Self) -> Bool
+pub fn SnapshotChange::to_repr(Self) -> @debug.Repr
+
+pub struct SnapshotDiff {
+  complete : Bool
+  changes : Array[SnapshotChange]
+} derive(Eq, @debug.Debug)
+pub fn SnapshotDiff::equal(Self, Self) -> Bool
+pub fn SnapshotDiff::not_equal(Self, Self) -> Bool
+pub fn SnapshotDiff::to_repr(Self) -> @debug.Repr
+
+pub(all) struct SourceMember {
+  path : String
+  kind : EntryKind
+  count : Int
+} derive(Eq, @debug.Debug)
+pub fn SourceMember::equal(Self, Self) -> Bool
+pub fn SourceMember::not_equal(Self, Self) -> Bool
+pub fn SourceMember::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Summary {
   entries : Int

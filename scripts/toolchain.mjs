@@ -1,7 +1,7 @@
 // Project-local installer. It never updates a global toolchain or shell profile.
 import { createHash } from 'node:crypto';
-import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, delimiter } from 'node:path';
+import { chmodSync, closeSync, createReadStream, existsSync, mkdirSync, openSync, readFileSync, readdirSync, readSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, delimiter, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
@@ -11,7 +11,8 @@ const platform = process.platform === 'win32' && process.arch === 'x64'
   ? 'windows-x86_64'
   : process.platform === 'linux' && process.arch === 'x64' ? 'linux-x86_64' : null;
 if (!platform) throw new Error('This release supports Windows x64 and Linux x64 toolchains.');
-const home = join(root, '.toolchains', platform);
+const home = resolve(root, process.env.MOONPORT_TOOLCHAIN_HOME || join('.toolchains', platform));
+const cache = resolve(root, process.env.MOONPORT_TOOLCHAIN_CACHE || join('.toolchains', 'downloads'));
 const ext = process.platform === 'win32' ? '.exe' : '';
 const moon = join(home, 'bin', `moon${ext}`);
 const env = { ...process.env, MOON_HOME: home, PATH: `${join(home, 'bin')}${delimiter}${process.env.PATH}` };
@@ -62,7 +63,6 @@ async function sha256(path) {
 }
 
 async function archive(spec) {
-  const cache = join(root, '.toolchains', 'downloads');
   mkdirSync(cache, { recursive: true });
   const path = join(cache, spec.file);
   if (!existsSync(path)) {
@@ -73,9 +73,28 @@ async function archive(spec) {
   }
   const actual = await sha256(path);
   if (actual !== spec.sha256) {
-    throw new Error(`Archive hash mismatch for ${spec.file}. Expected ${spec.sha256}, got ${actual}. Nothing was extracted. The official latest URL may have changed; restore the pinned archive to ${path}. Do not update the hash to bypass this error.`);
+    throw new Error(`Archive hash mismatch for ${spec.file}. Expected ${spec.sha256}, got ${actual}. Nothing was extracted. Restore the pinned archive to ${path}. Do not update the hash to bypass this error.`);
   }
   return path;
+}
+
+function repairLinuxExecutableModes(directory) {
+  // The pinned official Linux archive stores native binaries as 0664. Windows
+  // mounts can hide this defect; a native Linux filesystem correctly rejects
+  // execution. Only ELF files inside this verified installation gain x bits.
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) repairLinuxExecutableModes(path);
+    else if (entry.isFile()) {
+      const descriptor = openSync(path, 'r');
+      const magic = Buffer.alloc(4);
+      try { readSync(descriptor, magic, 0, 4, 0); }
+      finally { closeSync(descriptor); }
+      if (magic.equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))) {
+        chmodSync(path, statSync(path).mode | 0o111);
+      }
+    }
+  }
 }
 
 async function install() {
@@ -88,6 +107,7 @@ async function install() {
   run('tar', ['-xf', binary, '-C', home]);
   mkdirSync(join(home, 'lib'), { recursive: true });
   run('tar', ['-xf', core, '-C', join(home, 'lib')]);
+  if (process.platform === 'linux') repairLinuxExecutableModes(join(home, 'bin'));
   verify(false);
   // moon info writes the canonical interface using wasm by default even when
   // --target js is supplied. Bundle wasm as well as the supported test targets.

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { delimiter, dirname, join } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
@@ -8,7 +8,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const platform = process.platform === 'win32' && process.arch === 'x64' ? 'windows-x86_64'
   : process.platform === 'linux' && process.arch === 'x64' ? 'linux-x86_64' : null;
 assert.ok(platform, 'The pinned toolchain supports Windows x64 and Linux x64.');
-const toolchain = join(root, '.toolchains', platform);
+const toolchain = resolve(root, process.env.MOONPORT_TOOLCHAIN_HOME ?? join(root, '.toolchains', platform));
 const moon = join(toolchain, 'bin', process.platform === 'win32' ? 'moon.exe' : 'moon');
 const env = { ...process.env, MOON_HOME: toolchain, PATH: `${join(toolchain, 'bin')}${delimiter}${process.env.PATH}` };
 const packageFiles = ['bin/moonportcheck.mjs', 'lib/host.mjs', 'dist/bridge.js', 'package.json'];
@@ -76,7 +76,10 @@ const valid = invoke(process.execPath, [cli, 'check', validManifest, '--format',
 const invalid = invoke(process.execPath, [cli, 'check', invalidManifest, '--format', 'json'], { cwd: packaged, environment: runtimeEnv, expected: 1 });
 assert.deepEqual(JSON.parse(valid.stdout).diagnostics, []);
 assert.equal(JSON.parse(valid.stdout).summary.entries, 1);
-assert.deepEqual(JSON.parse(invalid.stdout).diagnostics, consumedReport.diagnostics);
+assert.equal(consumedReport.schema_version, 1, 'the original library API must remain schema 1');
+const cliReport = JSON.parse(invalid.stdout);
+assert.equal(cliReport.schema_version, 2, 'the v0.2 CLI uses the documented new schema');
+assert.deepEqual(cliReport.diagnostics.map(({ code, severity, paths, occurrences, message }) => ({ code, severity, paths, occurrences, message })), consumedReport.diagnostics);
 const version = invoke(process.execPath, [cli, '--version'], { cwd: packaged, environment: runtimeEnv });
 assert.equal(version.stdout.trim(), moduleVersion);
 const evidence = {
