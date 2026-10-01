@@ -2,7 +2,7 @@
 
 用 MoonBit 编写的跨平台路径预检库与离线 CLI。在把代码、数据或实验成果交给 Windows 用户前，检查文件名称、隐含目录及集合冲突。
 
-**当前源码版本：`0.2.0-dev`，尚未正式发布。** 检查配置固定为 `portable-windows-v1`。[公开仓库](https://github.com/AlexenderSokolov/moonportcheck) 持续开发，已加入规则查询、M04 详细报告与 M06 配置化排除。快照、差异、基线和多格式报告等能力仍按 [v0.2 计划](docs/V02_PLAN.md) 分步实施；实际里程碑与对应 CI 证据见 [执行账本](docs/V02_PROGRESS.md)。
+**当前源码版本：`0.2.0-dev`，尚未正式发布。** 检查配置固定为 `portable-windows-v1`。[公开仓库](https://github.com/AlexenderSokolov/moonportcheck) 持续开发，已加入规则查询、M04 详细报告、M06 配置化排除与 M07 快照模型。差异、基线和多格式报告等能力仍按 [v0.2 计划](docs/V02_PLAN.md) 分步实施；实际里程碑与对应 CI 证据见 [执行账本](docs/V02_PROGRESS.md)。
 
 ```text
 results/A.csv + results/a.csv  → PATH_CASE_COLLISION
@@ -147,4 +147,4 @@ moonportcheck explain NAME_RESERVED
 
 `rules` 列出 11 个审计规则和 4 个扫描完整性问题；`explain CODE` 精确匹配编号并显示原因、触发例子和整改建议。两者支持 text/JSON，JSON 为稳定排序的规则数组，查询单条时数组长度为 1。未知编号退出 `2`，已知规则查询退出 `0`；这不表示执行了目录检查。
 
-库还提供 `parse_pattern` 与 `pattern_matches` 进行纯路径范围匹配，M06 再以 `parse_scope` / `entry_excluded` / `audit_with_exclusions` 接入配置与 CLI 排除，完整语义见 [PATTERNS.md](docs/PATTERNS.md)。
+库还提供 `parse_pattern` 与 `pattern_matches` 进行纯路径范围匹配，M06 再以 `parse_scope` / `entry_excluded` / `audit_with_exclusions` 接入配置与 CLI 排除，完整语义见 [PATTERNS.md](docs/PATTERNS.md)。M07 增加快照模型 `Snapshot` 与 `build_snapshot` / `parse_snapshot` / `render_snapshot_json`，把唯一排序条目、范围、完整性与扫描问题持久化为可往返的独立 JSON 文档（不含内容、时间戳或主机绝对路径），供后续快照命令与差异比较使用。

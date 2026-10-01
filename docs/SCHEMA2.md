@@ -1,6 +1,6 @@
 # Schema 2：详细报告与消费迁移
 
-本文对应 `0.2.0-dev` 的 M04/M06 详细诊断接口。源码处于开发阶段，尚未正式发布。M04 增加来源证据与独立扫描问题；M06 增加配置化排除与目录剪枝，并接入 `scope`、`excluded_entries`、`pruned_directories` 字段。快照、差异、基线、SARIF 和 Markdown 报告属于后续里程碑，不能由本文推断它们已经可用。
+本文对应 `0.2.0-dev` 的 M04/M06/M07 详细诊断接口。源码处于开发阶段，尚未正式发布。M04 增加来源证据与独立扫描问题；M06 增加配置化排除与目录剪枝，并接入 `scope`、`excluded_entries`、`pruned_directories` 字段；M07 增加快照模型、解析与序列化（独立文档格式见下文「快照文档」）。差异、基线、SARIF 和 Markdown 报告属于后续里程碑，不能由本文推断它们已经可用。
 
 ## 选择需要的接口
 
@@ -110,9 +110,33 @@ schema 2 保留 `profile`、`source`、`complete`、`summary`、`diagnostics` �
 
 `source_examples` 为阅读服务，不能充当诊断身份或完整证据。即使样例被截断，`members` 仍全量保留。后续基线功能会使用组身份和完整成员计数；M04 本身尚未提供基线创建或比较命令。
 
-## 机器消费者迁移步骤
+## 快照文档（M07）
 
-1. 对审计／错误对象先验证 `schema_version === 2`，再区分 `error` 与审计报告；规则查询仍按数组读取。
+快照是持久化的扫描状态，供后续 `check` 快照支持（M08）与 `diff`（M09）使用；`parse_manifest` 保持只解析原数组清单。快照是独立文档，不是审计报告：固定外层 `{"format":"moonportcheck-snapshot","version":1,...}`，字段顺序固定：
+
+```json
+{
+  "format": "moonportcheck-snapshot",
+  "version": 1,
+  "profile": "portable-windows-v1",
+  "complete": true,
+  "scope": [],
+  "entries": [
+    { "path": "目录/a.txt", "kind": "file" },
+    { "path": "数据", "kind": "directory" }
+  ],
+  "scan_issues": []
+}
+```
+
+- `entries` 为按 `(path, kind)` 排序且路径唯一的条目；`kind` 只能是 `file` 或 `directory`。快照绝不保存文件内容、时间戳或主机绝对路径。
+- `scope` 为规范化后的有效排除模式（ordinal 排序、去重）。`complete` 表示来源扫描是否完整（有 `scan_issues` 即不完整）。`scan_issues` 为 `{code, path, message}` 数组。
+- `build_snapshot(entries, scan_issues, scope)` 构建并规范化：重复相同条目折叠、同一路径出现 `file` 与 `directory` 两种类型时报 `INPUT_SCHEMA`、非法排除模式报 `PATTERN_INVALID`、无扫描问题时 `complete=true`。
+- `parse_snapshot(text)` 只接受规范文档：`format`/`version` 必须匹配、仅允许已知字段、`entries` 必须严格递增且唯一、`scope` 必须是字符串数组、`scan_issues` 必须结构正确。损坏或非规范输入一律拒绝（`INPUT_SCHEMA` / `PATTERN_INVALID`）。
+- `render_snapshot_json(snapshot)` 以固定字段顺序确定性输出；`render_snapshot_json(parse_snapshot(render_snapshot_json(s)))` 与输入逐字节一致（往返一致、排序稳定）。
+- 快照命令与 `check` 快照支持在 M08 交付；本里程碑只提供模型、解析与序列化。
+
+## 机器消费者迁移步骤1. 对审计／错误对象先验证 `schema_version === 2`，再区分 `error` 与审计报告；规则查询仍按数组读取。
 2. 将原来在 `diagnostics` 中筛选 `SCAN_*` 的代码移到外层 `scan_issues`。统计路径问题时使用 `summary.diagnostic_groups`，统计扫描问题时使用 `summary.scan_issues`。
 3. 保留旧 `paths` 与 `occurrences` 的解释。需要定位实际文件时读取 `members`；需要全部出现次数时显式汇总成员 `count`，不要使用 `source_total` 代替。
 4. 对诊断组采用 `group_key` 和 `anchor` 定位；机器分析保留完整 `members`。不要以最多 5 条的 `source_examples` 判断问题新增、消失或成员变化。

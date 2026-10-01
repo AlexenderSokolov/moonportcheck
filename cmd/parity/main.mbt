@@ -145,4 +145,35 @@ fn main {
       ),
     )
   }
+  let snapshot = match
+    @moonportcheck.build_snapshot(
+      [
+        { path: "目录/a.txt", kind: @moonportcheck.File, },
+        { path: "数据", kind: @moonportcheck.Directory, },
+        { path: "results.tmp", kind: @moonportcheck.File, },
+      ],
+      [
+        {
+          code: "SCAN_LINK_SKIPPED",
+          path: "link",
+          message: "Link was not followed.",
+        },
+      ],
+      ["cache/", "*.tmp"],
+    ) {
+    Ok(snapshot) => snapshot
+    Err(_) => abort("Invalid parity snapshot")
+  }
+  println(@moonportcheck.render_snapshot_json(snapshot))
+  println(
+    @moonportcheck.render_snapshot_json(
+      match
+        @moonportcheck.parse_snapshot(
+          @moonportcheck.render_snapshot_json(snapshot),
+        ) {
+        Ok(parsed) => parsed
+        Err(_) => abort("Snapshot round trip failed")
+      },
+    ),
+  )
 }

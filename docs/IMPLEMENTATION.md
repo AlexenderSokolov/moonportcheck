@@ -117,3 +117,23 @@ prunes a directory when the MoonBit predicate matches it as a directory: the
 directory is still recorded as an entry but its subtree is not enumerated;
 excluded entries never become scan issues. No `.gitignore` is ever read
 implicitly.
+
+## M07 additions (v0.2, snapshot model)
+
+New root API in `snapshot.mbt`: `Snapshot`, `build_snapshot(Array[PathEntry],
+Array[ScanIssue], Array[String]) -> Result[Snapshot, InputError]`,
+`parse_snapshot(String) -> Result[Snapshot, InputError]` and
+`render_snapshot_json(Snapshot) -> String`. A `Snapshot` stores only the profile,
+completeness, the canonical scope, the unique sorted entries, and the scan
+issues of a scan — never content, timestamps or host absolute paths. `parse_*`
+and `render_*` round-trip exactly: the serializer emits a stable field order,
+`parse_snapshot` requires canonical input (entries strictly sorted and unique,
+only known fields, valid patterns), and corrupted or non-canonical documents are
+rejected with `INPUT_SCHEMA` / `PATTERN_INVALID`. Building a snapshot
+deduplicates identical entries, rejects a path with conflicting kinds, and
+normalizes the scope; a snapshot with no scan issues is `complete`. `check`
+continues to accept the original array manifests; snapshot-aware check and the
+`snapshot` bridge/CLI command arrive in M08 (per the plan, the snapshot document
+does not replace `parse_manifest`). `cmd/parity` gains two snapshot fixtures
+(build-render and parse-round-trip render) so both execution backends stay
+byte-identical.

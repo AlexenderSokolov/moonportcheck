@@ -12,6 +12,8 @@ pub fn audit_with_exclusions(Array[PathEntry], AuditOptions, ExclusionScope) -> 
 
 pub fn audit_with_options(Array[PathEntry], AuditOptions) -> DetailedReport
 
+pub fn build_snapshot(Array[PathEntry], Array[ScanIssue], Array[String]) -> Result[Snapshot, InputError]
+
 pub fn default_audit_options() -> AuditOptions
 
 pub fn effective_scope_patterns(ExclusionScope) -> Array[String]
@@ -26,6 +28,8 @@ pub fn parse_pattern(String) -> Result[PathPattern, InputError]
 
 pub fn parse_scope(Array[String]) -> Result[ExclusionScope, InputError]
 
+pub fn parse_snapshot(String) -> Result[Snapshot, InputError]
+
 pub fn pattern_matches(PathPattern, PathEntry) -> Bool
 
 pub fn render_detailed_json(DetailedReport) -> String
@@ -37,6 +41,8 @@ pub fn render_json(Report) -> String
 pub fn render_rules_json(Array[RuleInfo]) -> String
 
 pub fn render_rules_text(Array[RuleInfo]) -> String
+
+pub fn render_snapshot_json(Snapshot) -> String
 
 pub fn render_text(Report) -> String
 
@@ -160,6 +166,17 @@ pub(all) struct ScanIssue {
 pub fn ScanIssue::equal(Self, Self) -> Bool
 pub fn ScanIssue::not_equal(Self, Self) -> Bool
 pub fn ScanIssue::to_repr(Self) -> @debug.Repr
+
+pub struct Snapshot {
+  profile : String
+  complete : Bool
+  scope : Array[String]
+  entries : Array[PathEntry]
+  scan_issues : Array[ScanIssue]
+} derive(Eq, @debug.Debug)
+pub fn Snapshot::equal(Self, Self) -> Bool
+pub fn Snapshot::not_equal(Self, Self) -> Bool
+pub fn Snapshot::to_repr(Self) -> @debug.Repr
 
 pub(all) struct SourceMember {
   path : String
