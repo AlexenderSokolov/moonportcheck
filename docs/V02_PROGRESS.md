@@ -37,7 +37,7 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 | M07 | complete | Snapshot 模型、解析和序列化 | `7d4566b31d76a8a2dbf7f734e850006660d78249` | [36810508887](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36810508887)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 往返一致、排序稳定、损坏输入拒绝；获用户授权后 commit+push 并核验 CI |
 | M08 | complete | Snapshot 命令与 check 快照支持 | `fbbd44adc62ad27a4247d9c83d84a936fe01381a` | [36811966576](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36811966576)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 固定 JSON 快照文档；check 继承范围、额外排除只能缩小、不完整始终不完整；获用户授权后 commit+push 并核验 CI |
 | M09 | complete | SnapshotDiff 核心与报告 | `ea6ee3ded486e75567c8f2c86169116783974ff4` | [36812671506](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36812671506)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 新增/移除/类型/大小写；先精确匹配再 ASCII 折叠、一对一且类型相同才标大小写；范围不同拒绝；用户已全局授权后 commit+push 并核验 CI |
-| M10 | in_progress | `diff` 命令与退出语义 | — | 待提交后核验 | 退出 0/1/2/3；范围不同与文档损坏 2、不完整输入 3、无变化 0、有变化 1；text/json；本地完成情况见追加记录 |
+| M10 | complete | `diff` 命令与退出语义 | `442905a2eebb25269fdfd455d87113af87a103e0` | [36813476583](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36813476583)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 退出 0/1/2/3；范围不同与文档损坏 2、不完整输入 3、无变化 0、有变化 1；text/json；用户已全局授权后 commit+push 并核验 CI |
 | M07 | pending | Snapshot 模型与序列化 | — | — | 往返、稳定排序、损坏输入 |
 | M08 | pending | snapshot CLI 与快照检查 | — | — | 真实导出、完整性继承 |
 | M09 | pending | SnapshotDiff 核心与报告 | — | — | 新增、移除、类型、大小写变化 |
@@ -137,3 +137,9 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - M10 交付「diff 命令与退出语义」。新增根包 `render_snapshot_diff_text`（不完整输入首行标注 INCOMPLETE，变化行 `+/-/~` 符号）；桥接新增 `diff` 模式（解析两份快照→diff_snapshots→按 format 输出 json 文档或文本；退出码 2=损坏/范围不同、3=任一不完整、1=有变化、0=无变化）；host 参数解析接受 `diff`（恰好两个快照路径、拒绝 config/exclude、允许 text/json），bin 提供 `moonportcheck diff BEFORE.json AFTER.json`。
 - 验证（Windows，2026-10-01）：核心测试增加到 JS/wasm-gc 各 **82/82**（+1 文本渲染）；新增 bridge 测试（diff 退出码 0/1/2/3、文本输出、损坏/数组输入拒绝）与 CLI 端到端测试（diff 全退出码、文本输出、坏参数）；完整 run_check 通过（API 门禁、node 测试、parity **69**、代码量 **4474** 行 >3000）；本机 acceptance `passed:true`（证据 acceptance-win32-2026-10-01T04-03-08-969Z/evidence.json）。记录 `artifacts/m10-runcheck.out`。
 - **远端验证待核验**：M10 将提交并 push 至 `codex/october-v0.2`，随后核对该 SHA 的双平台 CI；通过后置 complete 进 M11。
+
+### 2026-10-01：M10 完成——diff 命令与退出语义（远端 CI 已核验）
+
+- M10 交付「diff 命令与退出语义」，实现同上条目。
+- 验证（Windows，2026-10-01）：核心测试 **82/82**×2 双目标；完整 run_check 通过（API 门禁、node 测试、parity **69**、代码量 **4474** 行 >3000）；本机 acceptance `passed:true`（证据 acceptance-win32-2026-10-01T04-03-08-969Z/evidence.json）。
+- **远端验收已完成**：基于用户的全局提交授权（2026-10-01），M10 以 `442905a2eebb25269fdfd455d87113af87a103e0` 提交并推送至 `codex/october-v0.2`（Draft PR #1）；公开 CI [36813476583](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36813476583) 的 windows-latest 与 ubuntu-24.04 两个 job 均 success（各自 Acceptance 步骤通过）。M10 由此记为 `complete`，可进入 M11。
