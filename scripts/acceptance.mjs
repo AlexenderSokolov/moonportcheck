@@ -21,6 +21,8 @@ const commands = [
   ['demo', process.execPath, ['scripts/demo.mjs']],
   ['benchmark', process.execPath, ['scripts/bench.mjs']],
   ['consumer', process.execPath, ['scripts/consumer-smoke.mjs']],
+  ['package', process.execPath, ['scripts/package.mjs']],
+  ['unpack', process.execPath, ['scripts/unpack.mjs']],
 ];
 for (const [label, command, args] of commands) {
   console.log(`Acceptance: ${label}`);

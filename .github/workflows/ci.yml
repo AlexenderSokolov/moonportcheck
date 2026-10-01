@@ -40,6 +40,14 @@ jobs:
           path: artifacts/reports/
           if-no-files-found: warn
           retention-days: 30
+      - name: Retain release-candidate archive
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: candidate-${{ runner.os }}
+          path: artifacts/candidate/
+          if-no-files-found: warn
+          retention-days: 90
       - name: Retain acceptance evidence
         if: always()
         uses: actions/upload-artifact@v7.0.1
