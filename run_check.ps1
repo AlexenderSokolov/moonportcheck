@@ -25,6 +25,10 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Cross-target parity check failed.' }
   & node scripts/format-matrix.mjs
   if ($LASTEXITCODE -ne 0) { throw 'Report format consistency check failed.' }
-  & node scripts/code-stats.mjs
-  if ($LASTEXITCODE -ne 0) { throw 'Source statistics failed.' }
+  & node scripts/property.mjs
+  if ($LASTEXITCODE -ne 0) { throw 'Property and feature-cross check failed.' }
+  & node scripts/bench.mjs
+  if ($LASTEXITCODE -ne 0) { throw 'Scale benchmark failed.' }
+  & node scripts/code-stats.mjs --min 3000
+  if ($LASTEXITCODE -ne 0) { throw 'Source statistics or LOC gate failed.' }
 } finally { Pop-Location }

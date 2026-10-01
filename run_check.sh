@@ -15,4 +15,6 @@ bash "$root/run_build.sh"
 node --test tests/*.test.mjs
 node scripts/parity.mjs
 node scripts/format-matrix.mjs
-node scripts/code-stats.mjs
+node scripts/property.mjs
+node scripts/bench.mjs
+node scripts/code-stats.mjs --min 3000
