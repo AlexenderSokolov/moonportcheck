@@ -164,3 +164,20 @@ snapshot document to stdout.
 
 `cmd/parity` gains one `audit_snapshot` fixture so `render_detailed_json` of a
 snapshot-audited report is byte-identical across js/wasm-gc (68 reports total).
+
+## M09 additions (v0.2, snapshot diff core and report)
+
+New root API in `diff.mbt`: `DiffKind` (`Added`/`Removed`/`KindChanged`/
+`CaseChanged`), `SnapshotChange`, `SnapshotDiff` and
+`diff_snapshots(Snapshot, Snapshot) -> Result[SnapshotDiff, InputError]` plus
+`render_snapshot_diff_json(SnapshotDiff) -> String`. A diff requires the two
+snapshots to have identical canonical scopes (`INPUT_SCHEMA` otherwise). Entries
+are matched by exact path first (same path with a different kind becomes a
+`kind` change); the remaining entries are then compared by ASCII folding, and a
+`case` change is reported only for a one-to-one fold whose before and after
+entries have the same kind. Renames or content changes are never inferred.
+Changes sort by kind rank (`added`, `removed`, `kind`, `case`) then path ordinal,
+and the serialized document is a stable `{"format":"moonportcheck-diff",
+"version":1,"complete":bool,"changes":[...]}`; `complete` is the conjunction of
+the two inputs' completeness. `cmd/parity` gains one diff fixture (69 reports
+total). The `diff` bridge mode and CLI arrive in M10.

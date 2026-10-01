@@ -18,6 +18,8 @@ pub fn build_snapshot(Array[PathEntry], Array[ScanIssue], Array[String]) -> Resu
 
 pub fn default_audit_options() -> AuditOptions
 
+pub fn diff_snapshots(Snapshot, Snapshot) -> Result[SnapshotDiff, InputError]
+
 pub fn effective_scope_patterns(ExclusionScope) -> Array[String]
 
 pub fn entry_excluded(ExclusionScope, PathEntry) -> Bool
@@ -43,6 +45,8 @@ pub fn render_json(Report) -> String
 pub fn render_rules_json(Array[RuleInfo]) -> String
 
 pub fn render_rules_text(Array[RuleInfo]) -> String
+
+pub fn render_snapshot_diff_json(SnapshotDiff) -> String
 
 pub fn render_snapshot_json(Snapshot) -> String
 
@@ -103,6 +107,16 @@ pub(all) struct Diagnostic {
 pub fn Diagnostic::equal(Self, Self) -> Bool
 pub fn Diagnostic::not_equal(Self, Self) -> Bool
 pub fn Diagnostic::to_repr(Self) -> @debug.Repr
+
+pub enum DiffKind {
+  Added
+  Removed
+  KindChanged
+  CaseChanged
+} derive(Eq, @debug.Debug)
+pub fn DiffKind::equal(Self, Self) -> Bool
+pub fn DiffKind::not_equal(Self, Self) -> Bool
+pub fn DiffKind::to_repr(Self) -> @debug.Repr
 
 pub(all) enum EntryKind {
   File
@@ -179,6 +193,25 @@ pub struct Snapshot {
 pub fn Snapshot::equal(Self, Self) -> Bool
 pub fn Snapshot::not_equal(Self, Self) -> Bool
 pub fn Snapshot::to_repr(Self) -> @debug.Repr
+
+pub struct SnapshotChange {
+  kind : DiffKind
+  path : String
+  paired_with : String
+  before_kind : String
+  after_kind : String
+} derive(Eq, @debug.Debug)
+pub fn SnapshotChange::equal(Self, Self) -> Bool
+pub fn SnapshotChange::not_equal(Self, Self) -> Bool
+pub fn SnapshotChange::to_repr(Self) -> @debug.Repr
+
+pub struct SnapshotDiff {
+  complete : Bool
+  changes : Array[SnapshotChange]
+} derive(Eq, @debug.Debug)
+pub fn SnapshotDiff::equal(Self, Self) -> Bool
+pub fn SnapshotDiff::not_equal(Self, Self) -> Bool
+pub fn SnapshotDiff::to_repr(Self) -> @debug.Repr
 
 pub(all) struct SourceMember {
   path : String

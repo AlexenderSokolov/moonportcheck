@@ -36,6 +36,7 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 | M06 | complete | 配置、排除与扫描剪枝 | `5c6f674d61188715f7b024b803021dd10315df43` | [36804146762](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36804146762)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | scan/check 范围一致、排除计数可信；双平台自动验收通过，获用户授权后 commit+push 并核验 CI |
 | M07 | complete | Snapshot 模型、解析和序列化 | `7d4566b31d76a8a2dbf7f734e850006660d78249` | [36810508887](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36810508887)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 往返一致、排序稳定、损坏输入拒绝；获用户授权后 commit+push 并核验 CI |
 | M08 | complete | Snapshot 命令与 check 快照支持 | `fbbd44adc62ad27a4247d9c83d84a936fe01381a` | [36811966576](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36811966576)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 固定 JSON 快照文档；check 继承范围、额外排除只能缩小、不完整始终不完整；获用户授权后 commit+push 并核验 CI |
+| M09 | in_progress | SnapshotDiff 核心与报告 | — | 待提交后核验 | 新增/移除/类型/大小写；先精确匹配再 ASCII 折叠、一对一且类型相同才标大小写；范围不同拒绝；本地完成情况见追加记录 |
 | M07 | pending | Snapshot 模型与序列化 | — | — | 往返、稳定排序、损坏输入 |
 | M08 | pending | snapshot CLI 与快照检查 | — | — | 真实导出、完整性继承 |
 | M09 | pending | SnapshotDiff 核心与报告 | — | — | 新增、移除、类型、大小写变化 |
@@ -116,3 +117,10 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - M08 交付「Snapshot 命令与 check 快照支持」。新增根包 `audit_snapshot(snapshot, extra_scope)`：继承快照范围、额外排除只缩小、快照 scan_issues 原样带入（不完整始终不完整）、`source="snapshot"`、profile 不匹配拒绝；桥接新增 `snapshot` 模式（完整导出退出 0、不完整退出 3），`check` 模式按顶层 JSON 值分类（数组=原清单、对象=快照经 audit_snapshot、其他=INPUT_SCHEMA）；host 参数解析接受 `snapshot`（target 必填、拒绝 `--format`、允许 config/exclude），bin 提供 `moonportcheck snapshot ROOT`。
 - 验证（Windows，2026-10-01）：核心测试增加到 JS/wasm-gc 各 **75/75**（新增 2 项 audit_snapshot 单测）；新增 bridge 测试（snapshot 模式、check 继承/收缩/报告/坏 profile）与 CLI 端到端测试（导出→再检入、不完整快照 exit 3、`--format` 拒绝）；完整 run_check 通过（API 门禁通过、node 测试通过、parity **68** 份跨目标逐字节一致含 audit_snapshot fixture、代码量 total **3977** 行 >3000）。记录 `artifacts/m08-runcheck.out`。
 - **远端验收已完成**：获用户明确授权后，M08 以 `fbbd44adc62ad27a4247d9c83d84a936fe01381a` 提交并推送至 `codex/october-v0.2`（Draft PR #1）；公开 CI [36811966576](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36811966576) 的 windows-latest 与 ubuntu-24.04 两个 job 均 success（各自 Acceptance 步骤通过）。M08 由此记为 `complete`，可进入 M09。
+
+### 2026-10-01：M09 本地实现与验证（远端 CI 待核验）
+
+- 自本里程碑起，用户已给予「提交代码明确授权，不再逐一询问」的全局授权（2026-10-01 记录于用户偏好），commit/push/CI 直接执行；仍禁 force-push/squash/改史/删文件，合并另行授权。
+- M09 交付「SnapshotDiff 核心与报告」。新增 diff.mbt：`DiffKind`（added/removed/kind/case）、`SnapshotChange`、`SnapshotDiff`、`diff_snapshots`（范围逐项相同否则 INPUT_SCHEMA；先精确路径匹配，类型不同记 kind；剩余条目按 ASCII 折叠、仅一对一且类型相同记 case 且不推测重命名；按 kind 序+路径 ordinal 稳定排序）、`render_snapshot_diff_json`（固定 `{"format":"moonportcheck-diff","version":1,"complete":...,"changes":[...]}`，complete=两份输入的完整度取与）。
+- 验证（Windows，2026-10-01）：核心测试增加到 JS/wasm-gc 各 **81/81**（新增 6 项 diff 测试：相同快照零变化、增删与类型变更排序、一对一大小写、类型不同/多义折叠不标 case、范围不一致拒绝+完整度继承、渲染字节稳定）；完整 run_check 通过（API 门禁通过、node 测试通过、parity **69** 份跨目标逐字节一致含 diff fixture、代码量 total **4287** 行 >3000）。记录 `artifacts/m09-runcheck.out`。
+- **远端验证待核验**：M09 将提交并 push 至 `codex/october-v0.2`，随后核对该 SHA 的双平台 CI；通过后置 complete 进 M10。

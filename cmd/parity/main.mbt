@@ -198,4 +198,39 @@ fn main {
       },
     ),
   )
+  let diff_before = match
+    @moonportcheck.build_snapshot(
+      [
+        { path: "a.txt", kind: @moonportcheck.File, },
+        { path: "C.txt", kind: @moonportcheck.File, },
+        { path: "dir", kind: @moonportcheck.Directory, },
+      ],
+      [],
+      [],
+    ) {
+    Ok(snapshot) => snapshot
+    Err(_) => abort("Invalid parity snapshot")
+  }
+  let diff_after = match
+    @moonportcheck.build_snapshot(
+      [
+        { path: "A.txt", kind: @moonportcheck.File, },
+        { path: "C.txt", kind: @moonportcheck.Directory, },
+        { path: "dir", kind: @moonportcheck.Directory, },
+        { path: "new.tmp", kind: @moonportcheck.File, },
+      ],
+      [],
+      [],
+    ) {
+    Ok(snapshot) => snapshot
+    Err(_) => abort("Invalid parity snapshot")
+  }
+  println(
+    @moonportcheck.render_snapshot_diff_json(
+      match @moonportcheck.diff_snapshots(diff_before, diff_after) {
+        Ok(diff) => diff
+        Err(_) => abort("Parity snapshot diff failed")
+      },
+    ),
+  )
 }

@@ -14,7 +14,7 @@ const wasm = run('wasm-gc');
 const js = run('js');
 assert.deepEqual(js, wasm, 'serialized reports differ between JS and wasm-gc');
 const lines = js.toString('utf8').trimEnd().split('\n');
-assert.equal(lines.length, 68);
+assert.equal(lines.length, 69);
 const reports = lines.map(line => JSON.parse(line));
 for (let i = 0; i < 22; i += 2) assert.equal(lines[i], lines[i + 1], 'input order changed report');
 assert.equal(reports[0].summary.entries, 0);
@@ -63,4 +63,12 @@ assert.equal(reports[67].summary.diagnostic_groups, 1);
 assert.equal(reports[67].excluded_entries, 3);
 assert.deepEqual(reports[67].pruned_directories, ['cache']);
 assert.ok(reports[67].diagnostics.some(d => d.code === 'NAME_RESERVED'));
+assert.equal(reports[68].format, 'moonportcheck-diff');
+assert.equal(reports[68].version, 1);
+assert.equal(reports[68].complete, true);
+assert.deepEqual(reports[68].changes.map(c => [c.kind, c.path, c.paired_with, c.before_kind, c.after_kind]), [
+  ['added', 'new.tmp', '', '', 'file'],
+  ['kind', 'C.txt', '', 'file', 'directory'],
+  ['case', 'A.txt', 'a.txt', 'file', 'file'],
+]);
 console.log(JSON.stringify({ parity: 'pass', targets: ['js', 'wasm-gc'], reports: reports.length, bytes: js.length, sha256: createHash('sha256').update(js).digest('hex') }, null, 2));
