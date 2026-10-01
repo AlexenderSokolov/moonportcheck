@@ -238,3 +238,10 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - 实时核实原 `main` 为 `3cdc9d4980d2a7e9deb0139d67c7a591c9e2a119`，PR #1 已合并；合并提交 CI [36820799686](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36820799686) Windows/Linux 均通过。原账本的“合并待授权”描述已过时。
 - 上述“独立审查结论”把测试执行和独立消费混同于独立代码审查，证据不足；本轮由独立 reviewer 实际检查源码和产品边界，复现快照完整性/唯一性、diff 范围、SARIF 入口/非法导航、基线分类缺失、未知字段及验收选旧归档等问题。已补必要修复和回归，原记录作为历史保留，不再作为发布正确性的唯一依据。
 - 不重写 harness 开发历史，不删除文件。版本统一为 `0.2.0`，发布分支为 `codex/release-v0.2.0`；正式发布前核验该分支和合并提交的精确 SHA 双平台 CI。详细发现、修复与后续公开发布结果见发布审计及 GitHub Release。
+
+### 2026-10-01：v0.2.0 正式发布完成
+
+- 修复 PR #2 已 merge；发布源码为 `b7cda70b8da20dab525cba7317d54881e53e4262`，两平台公开 CI [36825672273](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36825672273) 均通过。`v0.2.0` tag 固定该 SHA。
+- [GitHub Release v0.2.0](https://github.com/AlexenderSokolov/moonportcheck/releases/tag/v0.2.0) 正式可见，包含双平台 ZIP、校验和、验收元数据；实际下载归档、内部文件哈希、标准 ZIP reader 和完整 CLI smoke 已验证。
+- Mooncakes manifest `latest_version=0.2.0`、`build_status=success`、`has_package=true`；全新项目从注册表安装并运行 v1/v2/基线消费用例成功。
+- 原“全部达成”记录经独立审查与必要修复后得到本轮工程证据支持；当前结论不等同于官方报名或赛事最终验收通过。完整分析与 SHA/校验和见 `RELEASE_AUDIT_2026-10-01.md`。

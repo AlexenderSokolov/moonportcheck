@@ -49,7 +49,7 @@
 
 ## 发布验证记录
 
-正式版本为 0.2.0，版本号在 moon.mod、package.json 和 SARIF 元数据中保持一致。发布分支 `codex/release-v0.2.0`；验收通过后合并并建立 tag，再核验 Mooncakes 构建和注册表消费。实际 SHA、CI URL、归档校验和及发布结果按完成时间追加，当前不提前声明成功。
+正式版本为 0.2.0，版本号在 moon.mod、package.json 和 SARIF 元数据中保持一致。发布分支 `codex/release-v0.2.0` 已经由 PR #2 保留提交合并；正式发行、Mooncakes 构建和注册表消费均已验证，具体身份与结果见下面的最终记录。
 
 ### 本地发布验收
 
@@ -59,3 +59,21 @@
 - 归档经标准 .NET ZIP reader 实际读取；默认解包严格选择当前身份、核验内部校验和，并在无编译器 PATH 下运行全部公开 CLI 命令。发布后还需从远端下载实际发行物再验证。
 - Mooncakes dry-run 已校验打包源码及解包后的 `moon check`，服务器明确返回 202 和“未更改、dry-run 成功”；当前 moon CLI 却以非零退出并打印 failed，故只记录服务器验证结果，不把此非零码当作正式发布成功。正式发布以注册表 manifest 与全新消费项目安装结果为准。
 - 最终独立 reviewer 已确认产品修改无阻塞；文档中两处过期说明已修正。原始阶段历史保留，当前说明不伪造早期审查或测试结果。
+
+### 最终公开发布结果
+
+**已正式发布 MoonPortCheck v0.2.0。** 此追加记录发生在发布后，只补文档，不改变 tag、发行物或产品代码。
+
+- 发布源码 SHA：`b7cda70b8da20dab525cba7317d54881e53e4262`；修复提交 `2cd633e375c6d439c1636990b221ffb1da046718`。
+- [PR #2](https://github.com/AlexenderSokolov/moonportcheck/pull/2) 已 merge；[发布分支 CI 36825431382](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36825431382) 与 [合并提交 CI 36825672273](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36825672273) 的 Windows/Linux job 均成功。`v0.2.0` 的解引用 tag SHA 与上述发布源码一致。
+- CI 下载回来的两平台验收 evidence 均 `passed:true`；93 份源码哈希与发布 SHA 匹配，允许 LF/CRLF 差异。Windows 元数据的 `source_state=modified_worktree` 来自检查过程产生的行尾状态，并不是另一个实现；逐文件源码核验已排除内容漂移，Linux 为 committed_clean。
+- [GitHub 正式 Release](https://github.com/AlexenderSokolov/moonportcheck/releases/tag/v0.2.0)：`isDraft=false`、`isPrerelease=false`；提供两个平台 CLI ZIP、SHA256SUMS 及 Windows/Linux 验收元数据。下载自最终 CI 的实际归档通过内部 SHA-256、标准 .NET ZIP reader（24 个条目）和无编译器 CLI 全公开命令 smoke；上传后 GitHub 资产 digest 与本地文件哈希一致。
+- [Mooncakes](https://mooncakes.io/docs/AlexenderSokolov/moonportcheck) 正式上传返回 200、CLI 退出 0；[manifest](https://mooncakes.io/api/v0/manifest/AlexenderSokolov/moonportcheck) 确认 `version=latest_version=0.2.0`、`build_status=success`、`has_package=true`、`yanked=false`。
+- 新消费项目通过 `moon add AlexenderSokolov/moonportcheck@0.2.0` 从公共注册表下载，自己的 `moon.work` 仅包含 `.`，不引用本地源仓库；`moon check` / `moon run` 实际调用原 schema 1、新 schema 2 及 baseline API 均通过。证据 `artifacts/registry-consumer-knicV7/evidence.json`，消费者与验证命令保留在本机，未上传私密本地路径。
+
+| 正式 CLI 归档 | SHA-256 |
+| --- | --- |
+| moonportcheck-0.2.0-win32-b7cda70.zip | `a48feee19bf481d72de1ed691c5ab83294f98c07c7feb5a08a35f96d5af361d7` |
+| moonportcheck-0.2.0-linux-b7cda70.zip | `5df78a2daeed323053a3826e0abead98c55a7f4a173a1c43821040aebb28cc93` |
+
+达到本轮既定功能与工程发布门槛；具备官方十月要求的技术材料。官方报名、资格审核、个人对成果的理解说明与最终赛事验收未代办，也未宣称已通过。
