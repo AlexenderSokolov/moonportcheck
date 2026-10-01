@@ -6,7 +6,9 @@
 - 增加 `AuditOptions`、详细报告、原始来源成员与计数、稳定分组身份，以及最多 5 个展示样例。
 - CLI 审计报告和错误 JSON 升级为 schema 2；扫描问题与路径诊断分开，扫描不完整仍优先退出 `3`。
 - 原 `PathEntry`、`Report`、`parse_manifest`、`audit`、文本／JSON 渲染接口保持 v1 行为与 schema 1；迁移说明见 [SCHEMA2.md](docs/SCHEMA2.md)。
-- 报告预留范围、已知排除数和剪枝目录字段；M04 仍为 `[]`、`0`、`[]`。配置排除及其后的快照、差异、基线和新报告格式尚待对应里程碑实现。
+- M05 增加纯 MoonBit 排除模式匹配器 `parse_pattern` / `pattern_matches`，语义见 [PATTERNS.md](docs/PATTERNS.md)。
+- M06 增加 `parse_scope` / `entry_excluded` / `effective_scope_patterns` / `audit_with_exclusions`，以及 `check`/`scan` 的 `--exclude` 与版本化 `--config`；报告 `scope`、`excluded_entries`、`pruned_directories` 现在反映实际排除范围，不隐式读取 `.gitignore`。
+- 快照、差异、基线和新的报告格式尚待对应里程碑实现。
 
 各里程碑的完成情况、提交与公开 CI 以 [V02_PROGRESS.md](docs/V02_PROGRESS.md) 为准；开发版本号不表示正式包发布或赛事验收。
 

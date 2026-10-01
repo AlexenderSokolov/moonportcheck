@@ -52,6 +52,94 @@ pub fn run_request(request : String) -> String {
       }
       error_response(format, exit_code, code, message)
     }
+    Some(String("scope")) => {
+      // Validate the config and CLI exclusions and return the effective,
+      // deduplicated pattern list the host may use to prune a real scan.
+      let patterns : Array[String] = []
+      match fields.get("config_text") {
+        None => ()
+        Some(String(text)) =>
+          match parse_config(text) {
+            Err(error) =>
+              return error_response(format, 2, error.code, error.message)
+            Ok(configured) =>
+              for pattern in configured {
+                patterns.push(pattern)
+              }
+          }
+        Some(_) =>
+          return error_response(
+            format, 2, "INPUT_SCHEMA", "Config text must be a string or omitted.",
+          )
+      }
+      match fields.get("cli_exclude") {
+        None => ()
+        Some(Array(items)) =>
+          match collect_patterns(items) {
+            Err(error) =>
+              return error_response(format, 2, error.code, error.message)
+            Ok(cli) =>
+              for pattern in cli {
+                patterns.push(pattern)
+              }
+          }
+        Some(_) =>
+          return error_response(
+            format, 2, "INPUT_SCHEMA", "CLI exclusions must be an array of strings.",
+          )
+      }
+      match @moonportcheck.parse_scope(patterns) {
+        Err(error) => error_response(format, 2, error.code, error.message)
+        Ok(scope) =>
+          response(
+            0,
+            "{\"patterns\":" +
+            json_string_array(@moonportcheck.effective_scope_patterns(scope)) +
+            "}",
+          )
+      }
+    }
+    Some(String("excluded")) => {
+      // Single-path host query used only to decide whether a real directory
+      // can be pruned; the same MoonBit matcher decides every exclusion.
+      let patterns = match fields.get("patterns") {
+        Some(Array(items)) =>
+          match collect_patterns(items) {
+            Err(error) =>
+              return error_response(format, 2, error.code, error.message)
+            Ok(patterns) => patterns
+          }
+        Some(_) =>
+          return error_response(
+            format, 2, "INPUT_SCHEMA", "Exclusion patterns must be an array of strings.",
+          )
+        None =>
+          return error_response(
+            format, 2, "INPUT_SCHEMA", "Missing exclusion patterns.",
+          )
+      }
+      guard fields.get("path") is Some(String(path)) else {
+        return error_response(format, 2, "INPUT_SCHEMA", "Missing path.")
+      }
+      let kind = match fields.get("kind") {
+        Some(String("file")) => @moonportcheck.File
+        Some(String("directory")) => @moonportcheck.Directory
+        _ =>
+          return error_response(
+            format, 2, "INPUT_SCHEMA", "Kind must be file or directory.",
+          )
+      }
+      match @moonportcheck.parse_scope(patterns) {
+        Err(error) => error_response(format, 2, error.code, error.message)
+        Ok(scope) =>
+          response(
+            0,
+            @moonportcheck.entry_excluded(scope, { path, kind, })
+            .to_json()
+            .stringify(),
+          )
+      }
+    }
     Some(String("check")) => {
       guard fields.get("manifest_text") is Some(String(text)) else {
         return error_response(
@@ -61,13 +149,18 @@ pub fn run_request(request : String) -> String {
       match @moonportcheck.parse_manifest(text) {
         Err(e) => error_response(format, 2, e.code, e.message)
         Ok(entries) =>
-          report_response(
-            format,
-            @moonportcheck.audit_with_options(
-              entries,
-              @moonportcheck.default_audit_options(),
-            ),
-          )
+          match scope_of(fields) {
+            Err(error) => error_response(format, 2, error.code, error.message)
+            Ok(scope) =>
+              report_response(
+                format,
+                @moonportcheck.audit_with_exclusions(
+                  entries,
+                  @moonportcheck.default_audit_options(),
+                  scope,
+                ),
+              )
+          }
       }
     }
     Some(String("scan")) => {
@@ -86,10 +179,6 @@ pub fn run_request(request : String) -> String {
           format, 2, "INPUT_SCHEMA", "Missing scan issues array.",
         )
       }
-      let base = @moonportcheck.audit_with_options(
-        entries,
-        @moonportcheck.default_audit_options(),
-      )
       let issues : Array[@moonportcheck.ScanIssue] = []
       for item in raw_issues {
         guard item is Object(issue) else {
@@ -114,11 +203,132 @@ pub fn run_request(request : String) -> String {
         }
         issues.push({ code, path, message, })
       }
+      let base = match scope_of(fields) {
+        Err(error) =>
+          return error_response(format, 2, error.code, error.message)
+        Ok(scope) =>
+          @moonportcheck.audit_with_exclusions(
+            entries,
+            @moonportcheck.default_audit_options(),
+            scope,
+          )
+      }
       let report = @moonportcheck.with_scan_issues(base, issues)
       report_response(format, report)
     }
     _ => error_response(format, 2, "ARGUMENT_ERROR", "Unknown request mode.")
   }
+}
+
+///|
+/// Build the effective scope from an optional exclude_patterns array.
+fn scope_of(
+  fields : Map[String, Json],
+) -> Result[@moonportcheck.ExclusionScope, @moonportcheck.InputError] {
+  match fields.get("exclude_patterns") {
+    None => @moonportcheck.parse_scope([])
+    Some(Array(items)) =>
+      match collect_patterns(items) {
+        Err(error) => Err(error)
+        Ok(patterns) => @moonportcheck.parse_scope(patterns)
+      }
+    Some(_) =>
+      Err({
+        code: "INPUT_SCHEMA",
+        message: "Exclude patterns must be an array of strings.",
+      })
+  }
+}
+
+///|
+fn collect_patterns(
+  items : Array[Json],
+) -> Result[Array[String], @moonportcheck.InputError] {
+  let patterns : Array[String] = []
+  for item in items {
+    guard item is String(pattern) else {
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "Exclusion patterns must be strings.",
+      })
+    }
+    patterns.push(pattern)
+  }
+  Ok(patterns)
+}
+
+///|
+/// Versioned configuration: {"schema_version": 1, "exclude": [String...]}.
+/// Unknown fields and a missing or unsupported schema version are input errors.
+fn parse_config(
+  text : String,
+) -> Result[Array[String], @moonportcheck.InputError] {
+  let value = @json.parse(text) catch {
+    _ =>
+      return Err({
+        code: "INPUT_CONFIG",
+        message: "Invalid JSON in the configuration file.",
+      })
+  }
+  guard value is Object(fields) else {
+    return Err({
+      code: "INPUT_CONFIG",
+      message: "The configuration must be a JSON object.",
+    })
+  }
+  let mut schema_version : Int = 0
+  let mut exclude : Array[String] = []
+  for name in fields.keys() {
+    match name {
+      "schema_version" =>
+        match fields.get("schema_version") {
+          Some(Number(n, ..)) if n == 1.0 => schema_version = 1
+          _ =>
+            return Err({
+              code: "INPUT_CONFIG",
+              message: "Configuration schema_version must be 1.",
+            })
+        }
+      "exclude" =>
+        match fields.get("exclude") {
+          Some(Array(items)) =>
+            match collect_patterns(items) {
+              Ok(patterns) => {
+                exclude = patterns
+                ()
+              }
+              Err(_) =>
+                return Err({
+                  code: "INPUT_CONFIG",
+                  message: "Configuration exclude must contain only strings.",
+                })
+            }
+          Some(_) =>
+            return Err({
+              code: "INPUT_CONFIG",
+              message: "Configuration exclude must be an array of strings.",
+            })
+          None => ()
+        }
+      _ =>
+        return Err({
+          code: "INPUT_CONFIG",
+          message: "Unknown configuration field: " + name,
+        })
+    }
+  }
+  if schema_version != 1 {
+    return Err({
+      code: "INPUT_CONFIG",
+      message: "Configuration schema_version is required.",
+    })
+  }
+  Ok(exclude)
+}
+
+///|
+fn json_string_array(items : Array[String]) -> String {
+  "[" + items.map(item => item.to_json().stringify()).join(",") + "]"
 }
 
 ///|

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { parseArguments, readManifest, scan } from '../lib/host.mjs';
+import { parseArguments, readConfig, readManifest, scan } from '../lib/host.mjs';
 
 const directory = () => ({ isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false });
 const file = () => ({ isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false });
@@ -12,11 +12,12 @@ const ioFailure = (code) => Object.assign(new Error('secret absolute host path')
 const fixture = () => fs.mkdtemp(path.join(os.tmpdir(), 'moonportcheck-host-'));
 
 test('arguments are strict; JSON format is retained for malformed requests', () => {
-  assert.deepEqual(parseArguments(['scan', 'tree', '--format', 'json']), { mode: 'scan', target: 'tree', format: 'json' });
-  assert.deepEqual(parseArguments(['check', '--format', 'text', 'paths.json']), { mode: 'check', target: 'paths.json', format: 'text' });
+  assert.deepEqual(parseArguments(['scan', 'tree', '--format', 'json']), { mode: 'scan', target: 'tree', format: 'json', excludes: [], config: null });
+  assert.deepEqual(parseArguments(['check', '--format', 'text', 'paths.json']), { mode: 'check', target: 'paths.json', format: 'text', excludes: [], config: null });
   assert.deepEqual(parseArguments(['--help']), { mode: 'help' });
   assert.deepEqual(parseArguments(['--version']), { mode: 'version' });
-  for (const args of [[], ['scan'], ['bogus', 'tree'], ['check', 'one', 'two'], ['check', 'one', '--wat'], ['check', 'one', '--format'], ['check', 'one', '--format', 'xml'], ['check', 'one', '--format', 'text', '--format', 'text'], ['--help', 'tree']]) {
+  assert.deepEqual(parseArguments(['scan', 'tree', '--exclude', '*.tmp', '--exclude', 'cache/', '--config', 'mc.json', '--format', 'json']), { mode: 'scan', target: 'tree', format: 'json', excludes: ['*.tmp', 'cache/'], config: 'mc.json' });
+  for (const args of [[], ['scan'], ['bogus', 'tree'], ['check', 'one', 'two'], ['check', 'one', '--wat'], ['check', 'one', '--format'], ['check', 'one', '--format', 'xml'], ['check', 'one', '--format', 'text', '--format', 'text'], ['--help', 'tree'], ['scan', 'tree', '--config'], ['scan', 'tree', '--config', 'a', '--config', 'b'], ['scan', 'tree', '--exclude'], ['rules', '--exclude', 'x'], ['rules', '--config', 'mc.json'], ['explain', 'NAME_RESERVED', '--config', 'mc.json'], ['explain', 'NAME_RESERVED', '--exclude', 'x'], ['check', 'one', '--exclude', '\ud800']]) {
     const result = parseArguments(args);
     assert.equal(result.mode, 'error', JSON.stringify(args));
     assert.equal(result.exit_code, 2);
@@ -25,15 +26,22 @@ test('arguments are strict; JSON format is retained for malformed requests', () 
   assert.equal(parseArguments(['check', 'one', '--unknown', '--format', 'json']).format, 'json');
 });
 
-test('manifest reads strict UTF-8 and classifies read failures', async () => {
+test('manifest and config reads strict UTF-8 and classify read failures', async () => {
   const root = await fixture();
   const good = path.join(root, 'good.json');
   const bad = path.join(root, 'bad.json');
+  const goodConfig = path.join(root, 'good.config');
+  const badConfig = path.join(root, 'bad.config');
   await fs.writeFile(good, '[{"path":"中文.txt","kind":"file"}]');
   await fs.writeFile(bad, Buffer.from([0xc3, 0x28]));
+  await fs.writeFile(goodConfig, '{"schema_version":1,"exclude":["**/cache"]}');
+  await fs.writeFile(badConfig, Buffer.from([0xff, 0xfe]));
   assert.match(await readManifest(good), /中文/);
+  assert.match(await readConfig(goodConfig), /schema_version/);
   await assert.rejects(readManifest(bad), { code: 'INPUT_ENCODING', exitCode: 2 });
+  await assert.rejects(readConfig(badConfig), { code: 'INPUT_ENCODING', exitCode: 2 });
   await assert.rejects(readManifest(path.join(root, 'missing')), { code: 'INPUT_IO_ERROR', exitCode: 3 });
+  await assert.rejects(readConfig(path.join(root, 'missing-config')), { code: 'INPUT_IO_ERROR', exitCode: 3 });
 });
 
 test('real scan includes hidden files and empty directories; root is not an entry', async () => {
@@ -133,4 +141,38 @@ test('scan order does not depend on filesystem enumeration order', async () => {
     } });
   }
   assert.deepEqual(await ordered(['z', 'A', 'b']), await ordered(['b', 'z', 'A']));
+});
+
+test('scan records an excluded directory but never enumerates its subtree', async () => {
+  const root = path.resolve('virtual-tree');
+  const readdirCalls = [];
+  const entriesOf = (name) => {
+    if (name === root) return ['a', 'cache', 'z'].map((item) => Buffer.from(item));
+    if (name.endsWith('\\a') || name.endsWith('/a')) return [Buffer.from('a.txt')];
+    throw ioFailure('EPERM');
+  };
+  const result = await scan(root, {
+    excludeMatch: (relative, kind) => relative === 'cache' && kind === 'directory',
+    fs: {
+      async lstat(name) {
+        if (name === root) return directory();
+        const leaf = name.slice(Math.max(name.lastIndexOf('\\'), name.lastIndexOf('/')) + 1);
+        return leaf === 'a' || leaf === 'cache' ? directory() : file();
+      },
+      async readdir(name) {
+        readdirCalls.push(name);
+        return entriesOf(name);
+      },
+    },
+  });
+  const sorted = (entries) => entries.slice().sort((l, r) => (l.path < r.path ? -1 : l.path > r.path ? 1 : 0));
+  assert.deepEqual(sorted(result.entries), sorted([
+    { path: 'a', kind: 'directory' },
+    { path: 'a/a.txt', kind: 'file' },
+    { path: 'cache', kind: 'directory' },
+    { path: 'z', kind: 'file' },
+  ]));
+  assert.deepEqual(result.scan_issues, []);
+  assert.ok(readdirCalls.some((name) => /[\\/]a$/.test(name)), 'sibling tree was enumerated');
+  assert.ok(!readdirCalls.some((name) => /[\\/]cache$/.test(name)), 'excluded subtree was pruned');
 });

@@ -1,6 +1,6 @@
 # Schema 2：详细报告与消费迁移
 
-本文对应 `0.2.0-dev` 的 M04 详细诊断接口。源码处于开发阶段，尚未正式发布。M04 增加来源证据与独立扫描问题；配置排除、快照、差异、基线、SARIF 和 Markdown 报告属于后续里程碑，不能由本文中的预留字段推断它们已经可用。
+本文对应 `0.2.0-dev` 的 M04/M06 详细诊断接口。源码处于开发阶段，尚未正式发布。M04 增加来源证据与独立扫描问题；M06 增加配置化排除与目录剪枝，并接入 `scope`、`excluded_entries`、`pruned_directories` 字段。快照、差异、基线、SARIF 和 Markdown 报告属于后续里程碑，不能由本文推断它们已经可用。
 
 ## 选择需要的接口
 
@@ -45,14 +45,27 @@ schema 2 保留 `profile`、`source`、`complete`、`summary`、`diagnostics` �
 | `summary.scan_issues` | 扫描问题数量 | 只计外层 `scan_issues` |
 | `diagnostics` | `DetailedDiagnostic` 数组 | 只包含路径规则问题 |
 | `scan_issues` | `{code, path, message}` 数组 | 扫描完整性问题独立存放，清单检查为 `[]` |
-| `scope` | 规范化后的有效排除模式数组 | `[]`，当前没有排除功能 |
-| `excluded_entries` | 已知被排除的条目数 | `0` |
-| `pruned_directories` | 实际剪枝的相对目录路径数组 | `[]` |
+| `scope` | 规范化后的有效排除模式数组 | M06：配置与命令行排除的并集，去重后按 ordinal 排序 |
+| `excluded_entries` | 已知被排除的条目数 | M06：只统计已知输入中实际被排除的条目 |
+| `pruned_directories` | 实际剪枝的相对目录路径数组 | M06：被整棵排除的最顶层目录，按 ordinal 排序 |
 | `limitations` | 覆盖限制字符串数组 | 保留覆盖边界说明 |
 
-`scope`、`excluded_entries`、`pruned_directories` 从 schema 2 起始终存在，使报告能够完整表达检查范围。M04 尚未接入排除或剪枝；后续实现也只能统计已知排除项，不能估算未遍历子树的文件数。空范围表示没有配置排除，不表示默认忽略 `.git` 或隐藏目录。
+`scope`、`excluded_entries`、`pruned_directories` 从 schema 2 起始终存在，使报告能够完整表达检查范围。空范围表示没有配置排除，不表示默认忽略 `.git` 或隐藏目录。`excluded_entries` 只统计已知输入中实际匹配排除的条目：当整棵目录在扫描时被剪枝、未枚举其内部条目时，该数少于清单等价输入下的值，这是文档规定的「不估算未遍历子树」定义，不能据此推断文件数。`pruned_directories` 只报告**最顶层**被剪枝目录（其祖先未被整棵排除），保证扫描与等价清单在相同排除下得到相同结论。
 
 扫描问题不再混入 `diagnostics`。例如跳过链接会出现在 `scan_issues` 中，令 `complete=false`；即使没有任何路径诊断，CLI 也必须退出 `3`。同时存在路径问题和扫描问题时，两者均保留，`3` 优先于 `1`。
+
+## 排除配置与剪枝（M06）
+
+`check` 与 `scan` 接受 `--exclude PATTERN`（可重复）与可选 `--config FILE`。配置文件是版本化 JSON：`{"schema_version":1,"exclude":["模式", ...]}`，`schema_version` 必填且必须为 `1`，`exclude` 可选、缺省为 `[]`。配置与命令行排除取并集，按原始拼写去重后按 ordinal 排序，即报告中的 `scope`。未指定任何排除时 `scope` 为 `[]`，与 M04 的默认报告一致。**绝不**隐式读取 `.gitignore` 或任何其他文件。
+
+排除模式语法沿用 PATTERNS 文档（M05 匹配器）。排除语义：
+
+- 被排除条目不进入审计、不产生诊断，也不计入 `summary.entries`，但计入 `excluded_entries`。
+- 匹配真实或隐含目录的排除会排除整个子树；`pruned_directories` 只列出**最顶层**被剪枝目录（祖先未被整棵排除者），因此扫描与等价清单在相同排除下得到相同的 `scope`、诊断、`summary` 与 `pruned_directories`。
+- 结构非法的路径永远不会被排除（匹配器对路径做结构校验），相关诊断仍产生。
+- 排除只影响条目范围，不豁免扫描完整性问题：扫描不完整时 `complete=false` 且退出 `3`。
+
+配置错误按输入错误退出 `2`：非法 JSON、非对象、缺少或错误的 `schema_version`、未知字段统一为 `INPUT_CONFIG`；配置/命令行中的非法模式报 `PATTERN_INVALID` 并指出具体问题（可能由同一个错误响应携带）。配置文件无法读取或不是有效 UTF-8 时分别报 `INPUT_IO_ERROR`（退出 `3`）与 `INPUT_ENCODING`（退出 `2`），与清单文件的处理一致，错误消息不包含主机绝对路径。
 
 ## 详细诊断与来源计数
 

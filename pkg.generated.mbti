@@ -8,15 +8,23 @@ import {
 // Values
 pub fn audit(Array[PathEntry]) -> Report
 
+pub fn audit_with_exclusions(Array[PathEntry], AuditOptions, ExclusionScope) -> DetailedReport
+
 pub fn audit_with_options(Array[PathEntry], AuditOptions) -> DetailedReport
 
 pub fn default_audit_options() -> AuditOptions
+
+pub fn effective_scope_patterns(ExclusionScope) -> Array[String]
+
+pub fn entry_excluded(ExclusionScope, PathEntry) -> Bool
 
 pub fn explain(String) -> RuleInfo?
 
 pub fn parse_manifest(String) -> Result[Array[PathEntry], InputError]
 
 pub fn parse_pattern(String) -> Result[PathPattern, InputError]
+
+pub fn parse_scope(Array[String]) -> Result[ExclusionScope, InputError]
 
 pub fn pattern_matches(PathPattern, PathEntry) -> Bool
 
@@ -95,6 +103,10 @@ pub(all) enum EntryKind {
 pub fn EntryKind::equal(Self, Self) -> Bool
 pub fn EntryKind::not_equal(Self, Self) -> Bool
 pub fn EntryKind::to_repr(Self) -> @debug.Repr
+
+pub struct ExclusionScope {
+  // private fields
+}
 
 pub(all) struct InputError {
   code : String

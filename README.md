@@ -2,7 +2,7 @@
 
 用 MoonBit 编写的跨平台路径预检库与离线 CLI。在把代码、数据或实验成果交给 Windows 用户前，检查文件名称、隐含目录及集合冲突。
 
-**当前源码版本：`0.2.0-dev`，尚未正式发布。** 检查配置固定为 `portable-windows-v1`。[公开仓库](https://github.com/AlexenderSokolov/moonportcheck) 持续开发，已加入规则查询与 M04 详细报告。后续配置排除、快照、差异和基线等能力仍按 [v0.2 计划](docs/V02_PLAN.md) 分步实施；实际里程碑与对应 CI 证据见 [执行账本](docs/V02_PROGRESS.md)。
+**当前源码版本：`0.2.0-dev`，尚未正式发布。** 检查配置固定为 `portable-windows-v1`。[公开仓库](https://github.com/AlexenderSokolov/moonportcheck) 持续开发，已加入规则查询、M04 详细报告与 M06 配置化排除。快照、差异、基线和多格式报告等能力仍按 [v0.2 计划](docs/V02_PLAN.md) 分步实施；实际里程碑与对应 CI 证据见 [执行账本](docs/V02_PROGRESS.md)。
 
 ```text
 results/A.csv + results/a.csv  → PATH_CASE_COLLISION
@@ -39,8 +39,8 @@ node bin/moonportcheck.mjs check examples/windows-problems.json --format text
 ## 检查目录或清单
 
 ```text
-moonportcheck scan ROOT [--format text|json]
-moonportcheck check MANIFEST [--format text|json]
+moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--format text|json]
+moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json]
 moonportcheck --help
 moonportcheck --version
 ```
@@ -66,6 +66,14 @@ node bin/moonportcheck.mjs check examples/windows-problems.json --format json
 
 中间目录不必显式列出。反斜杠不会被转换为分隔符。合法清单里的非法路径属于规则发现；损坏 JSON 或字段类型错误属于输入错误。
 
+可以用 `--exclude PATTERN`（可重复）或 `--config FILE` 缩小检查范围，两者取并集；模式语法与含义见 [PATTERNS.md](docs/PATTERNS.md)。配置文件是带版本号的 JSON，`schema_version` 必须为 `1`：
+
+```json
+{ "schema_version": 1, "exclude": ["**/cache", "*.tmp"] }
+```
+
+被排除条目不进入审计，也不产生诊断；被整棵排除的目录不再枚举其子树（扫描）。任何人不得隐式读取 `.gitignore`。配置结构错误退出 `2`，无法读取或非法 UTF-8 分别退出 `3` 与 `2`。
+
 | 退出码 | 含义 |
 | --- | --- |
 | `0` | 检查完整，已覆盖规则未发现问题 |
@@ -73,7 +81,7 @@ node bin/moonportcheck.mjs check examples/windows-problems.json --format json
 | `2` | 参数、编码或清单结构错误 |
 | `3` | I/O 失败或扫描不完整，优先于 `1` |
 
-报告写入标准输出。v0.2 CLI 的审计和错误 JSON 明确使用 **schema 2**。审计报告保留原有平面字段，详细诊断增加原始来源、成员计数和稳定组身份；扫描问题独立放在 `scan_issues`，不再混入 `diagnostics`。`scope`、`excluded_entries`、`pruned_directories` 已保留在报告中，M04 当前为 `[]`、`0`、`[]`，不代表排除功能已实现。诊断分组与排序固定，不附时间戳。错误使用独立错误响应，不输出误导性的空成功报告。字段与消费迁移见 [SCHEMA2.md](docs/SCHEMA2.md)。
+报告写入标准输出。v0.2 CLI 的审计和错误 JSON 明确使用 **schema 2**。审计报告保留原有平面字段，详细诊断增加原始来源、成员计数和稳定组身份；扫描问题独立放在 `scan_issues`，不再混入 `diagnostics`。`scope`、`excluded_entries`、`pruned_directories` 在 M06 起反映实际排除范围：`scope` 为去重排序后的有效模式，`excluded_entries` 只统计已知输入中实际被排除的条目，`pruned_directories` 列出最顶层被剪枝目录。诊断分组与排序固定，不附时间戳。错误使用独立错误响应，不输出误导性的空成功报告。字段与消费迁移见 [SCHEMA2.md](docs/SCHEMA2.md)。
 
 ## 作为 MoonBit 库使用
 
@@ -139,4 +147,4 @@ moonportcheck explain NAME_RESERVED
 
 `rules` 列出 11 个审计规则和 4 个扫描完整性问题；`explain CODE` 精确匹配编号并显示原因、触发例子和整改建议。两者支持 text/JSON，JSON 为稳定排序的规则数组，查询单条时数组长度为 1。未知编号退出 `2`，已知规则查询退出 `0`；这不表示执行了目录检查。
 
-库还提供 `parse_pattern` 与 `pattern_matches` 进行纯路径范围匹配，完整语义见 [PATTERNS.md](docs/PATTERNS.md)。当前 M05 仅提供匹配核心，配置和 CLI 排除由 M06 接入。
+库还提供 `parse_pattern` 与 `pattern_matches` 进行纯路径范围匹配，M06 再以 `parse_scope` / `entry_excluded` / `audit_with_exclusions` 接入配置与 CLI 排除，完整语义见 [PATTERNS.md](docs/PATTERNS.md)。

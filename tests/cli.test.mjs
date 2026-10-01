@@ -182,3 +182,104 @@ test('schema 2 reports retain all original members while bounding source example
   assert.ok(grouped.source_examples.some(m => m.path.startsWith('A/')));
   assert.ok(grouped.source_examples.some(m => m.path.startsWith('a/')));
 });
+
+test('CLI check --exclude filters entries and reports the scope', async () => {
+  const filename = await manifest([
+    { path: 'a.tmp', kind: 'file' },
+    { path: 'cache', kind: 'directory' },
+    { path: 'cache/x', kind: 'file' },
+    { path: 'README', kind: 'file' },
+  ]);
+  const result = invoke('check', filename, '--exclude', '*.tmp', '--exclude', 'cache/', '--format', 'json');
+  assert.equal(result.status, 0, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.deepEqual(report.scope, ['*.tmp', 'cache/']);
+  assert.equal(report.excluded_entries, 3);
+  assert.deepEqual(report.pruned_directories, ['cache']);
+  assert.equal(report.summary.entries, 1);
+  assert.deepEqual(report.diagnostics, []);
+});
+
+test('CLI --config supplies exclusions and unifies with repeated --exclude', async () => {
+  const root = await fixture();
+  const config = path.join(root, 'moonportcheck.json');
+  await fs.writeFile(config, '{"schema_version":1,"exclude":["*.tmp","cache/"]}');
+  const filename = await manifest([
+    { path: 'a.tmp', kind: 'file' },
+    { path: 'cache', kind: 'directory' },
+    { path: 'cache/x', kind: 'file' },
+    { path: 'notes/a.tmp', kind: 'file' },
+    { path: 'README', kind: 'file' },
+  ]);
+  const result = invoke('check', filename, '--config', config, '--exclude', '*.tmp', '--format', 'json');
+  assert.equal(result.status, 0, result.stdout);
+  const report = JSON.parse(result.stdout);
+  // Duplicate literal patterns collapse; the union of config and CLI stays.
+  assert.deepEqual(report.scope, ['*.tmp', 'cache/']);
+  assert.equal(report.excluded_entries, 3);
+  assert.deepEqual(report.pruned_directories, ['cache']);
+  assert.equal(report.summary.entries, 2);
+});
+
+test('CLI config errors exit 2 and read failures exit 3', async () => {
+  const root = await fixture();
+  const filename = await manifest([{ path: 'x', kind: 'file' }]);
+  for (const [contents, code] of [
+    ['{"schema_version":2,"exclude":[]}', 'INPUT_CONFIG'],
+    ['{"exclude":[]}', 'INPUT_CONFIG'],
+    ['{"schema_version":1,"exclude":["a[b]"]}', 'PATTERN_INVALID'],
+    ['{"schema_version":1,"exclude":["*.tmp"],"extra":1}', 'INPUT_CONFIG'],
+    ['not json', 'INPUT_CONFIG'],
+    ['42', 'INPUT_CONFIG'],
+    ['{"schema_version":1,"exclude":5}', 'INPUT_CONFIG'],
+  ]) {
+    const file = path.join(root, `config-${contents.length}-${Math.random()}`);
+    await fs.writeFile(file, contents);
+    const result = invoke('check', filename, '--config', file, '--format', 'json');
+    assert.equal(result.status, 2, contents);
+    assert.match(result.stdout, new RegExp(code), contents);
+    assert.doesNotThrow(() => JSON.parse(result.stdout));
+  }
+  const missing = invoke('check', filename, '--config', path.join(root, 'absent'), '--format', 'json');
+  assert.equal(missing.status, 3, missing.stdout);
+  assert.match(missing.stdout, /INPUT_IO_ERROR/);
+  // Under --format text the same error is rendered as text, not a JSON payload.
+  const textFile = path.join(root, 'config-text');
+  await fs.writeFile(textFile, '{"schema_version":2,"exclude":[]}');
+  const textResult = invoke('check', filename, '--config', textFile, '--format', 'text');
+  assert.equal(textResult.status, 2, textResult.stdout);
+  assert.doesNotThrow(() => {
+    if (textResult.stdout.trim().startsWith('{')) JSON.parse(textResult.stdout);
+  });
+  assert.match(textResult.stdout, /INPUT_CONFIG/);
+  assert.match(textResult.stdout, /MoonPortCheck error/);
+});
+
+test('CLI scan and check agree under the same exclusions', async () => {
+  const root = await fixture();
+  await fs.mkdir(path.join(root, 'cache'));
+  await fs.mkdir(path.join(root, 'build'));
+  await fs.mkdir(path.join(root, 'src'));
+  await fs.writeFile(path.join(root, 'cache', 'x.bin'), '');
+  await fs.writeFile(path.join(root, 'build', 'ok.txt'), '');
+  await fs.writeFile(path.join(root, 'src', 'a.txt'), '');
+  const args = ['--exclude', 'cache/', '--exclude', 'build'];
+  const scanned = invoke('scan', root, ...args, '--format', 'json');
+  assert.equal(scanned.status, 0, scanned.stdout);
+  const scanReport = JSON.parse(scanned.stdout);
+  assert.equal(scanReport.source, 'scan');
+  // A pruned directory is still recorded as an entry but its subtree is not.
+  assert.deepEqual(scanReport.pruned_directories, ['build', 'cache']);
+  const filename = await manifest([
+    { path: 'build', kind: 'directory' },
+    { path: 'cache', kind: 'directory' },
+    { path: 'src', kind: 'directory' },
+    { path: 'src/a.txt', kind: 'file' },
+  ]);
+  const checked = JSON.parse(invoke('check', filename, ...args, '--format', 'json').stdout);
+  assert.deepEqual(scanReport.diagnostics, checked.diagnostics);
+  assert.deepEqual(scanReport.summary, checked.summary);
+  assert.deepEqual(scanReport.scope, checked.scope);
+  assert.deepEqual(scanReport.pruned_directories, checked.pruned_directories);
+  assert.equal(checked.excluded_entries, 2);
+});

@@ -81,3 +81,39 @@ clean consumer and packaged CLI validation. Public CI and Mooncakes status
 remain pending until authorized external release. The project has an independent
 Git repository. Before its first commit, source_commit is null; source file
 hashes identify the tested uncommitted snapshot without inventing a release SHA.
+
+## M06 additions (v0.2, exclusion scope)
+
+New root API in `scope.mbt`: `parse_scope(Array[String]) ->
+Result[ExclusionScope, InputError]`, `entry_excluded(ExclusionScope, PathEntry)
+-> Bool`, `effective_scope_patterns(ExclusionScope) -> Array[String]` and
+`audit_with_exclusions(Array[PathEntry], AuditOptions, ExclusionScope) ->
+DetailedReport`. `ExclusionScope` is opaque; it wraps the deduplicated, ordinal
+patterns and their compiled `PathPattern`s. `parse_scope` rejects invalid
+patterns with `PATTERN_INVALID`. `audit_with_exclusions` filters retained
+entries through the existing `audit_with_options`, then records the scope
+patterns, the count of excluded known inputs, and the top-most pruned
+directories (a directory whose ancestor is already excluded is subsumed, so a
+scan and an equivalent manifest yield identical scope/diagnostics/summary/
+pruned_directories). Nothing invents counts for unenumerated subtrees.
+
+New bridge request modes in `src/bridge/bridge.mbt`:
+
+- `{mode:"scope", format:"json", config_text?:"…JSON…", cli_exclude?:[String]}`.
+  Parses the versioned config (schema_version must be 1, unknown fields fail
+  with `INPUT_CONFIG`), merges CLI exclusions, validates every pattern, and
+  returns `{"patterns":[...]}`. The host calls this once before a scan/check to
+  fail fast on config errors and to obtain the canonical pattern list.
+- `{mode:"excluded", format:"json", patterns:[String], path:String,
+  kind:"file"|"directory"}` returns `"true"`/`"false"` using the same MoonBit
+  matcher, so the Node host never reimplements glob semantics.
+- `check` and `scan` accept an optional `exclude_patterns:[String]`; the
+  effective scope is applied inside MoonBit and flows into the schema 2 fields.
+
+CLI: `--config FILE` (at most once) and repeatable `--exclude PATTERN` are valid
+for `scan` and `check`. A missing/undecodable config maps to `INPUT_IO_ERROR`
+(exit 3) / `INPUT_ENCODING` (exit 2), the same as a manifest. The host scan
+prunes a directory when the MoonBit predicate matches it as a directory: the
+directory is still recorded as an entry but its subtree is not enumerated;
+excluded entries never become scan issues. No `.gitignore` is ever read
+implicitly.

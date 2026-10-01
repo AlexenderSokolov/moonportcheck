@@ -101,4 +101,48 @@ fn main {
       .stringify(),
     )
   }
+  let scope_fixtures : Array[(Array[String], Array[@moonportcheck.PathEntry])] = [
+    (
+      ["*.tmp", "cache/"],
+      [
+        { path: "results.tmp", kind: @moonportcheck.File, },
+        { path: "notes/a.txt", kind: @moonportcheck.File, },
+        { path: "cache", kind: @moonportcheck.Directory, },
+        { path: "cache/x.tmp", kind: @moonportcheck.File, },
+        { path: "nested/c.tmp", kind: @moonportcheck.File, },
+      ],
+    ),
+    (
+      ["**"],
+      [
+        { path: "/abs", kind: @moonportcheck.File, },
+        { path: "CON.txt", kind: @moonportcheck.File, },
+        { path: "ok/a.txt", kind: @moonportcheck.File, },
+      ],
+    ),
+  ]
+  for (patterns, entries) in scope_fixtures {
+    let scope = match @moonportcheck.parse_scope(patterns) {
+      Ok(scope) => scope
+      Err(_) => abort("Invalid parity scope")
+    }
+    println(
+      @moonportcheck.render_detailed_json(
+        @moonportcheck.audit_with_exclusions(
+          entries,
+          @moonportcheck.default_audit_options(),
+          scope,
+        ),
+      ),
+    )
+    println(
+      @moonportcheck.render_detailed_json(
+        @moonportcheck.audit_with_exclusions(
+          entries.rev(),
+          @moonportcheck.default_audit_options(),
+          scope,
+        ),
+      ),
+    )
+  }
 }
