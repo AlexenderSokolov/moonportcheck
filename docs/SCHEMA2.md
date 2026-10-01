@@ -199,7 +199,16 @@ schema 2 保留 `profile`、`source`、`complete`、`summary`、`diagnostics` �
 - `worsened`：同组新增成员路径/类型，或任一成员次数上升。
 - `new`：报告中有、基线中没有的组。
 - 变化列表按状态序 `new`、`worsened`、`existing`、`resolved` 再按 code/anchor 排序。
-- 非完整报告或非 schema 2 报告不能建基线（退出 `2`，代码 `INPUT_INCOMPLETE`/`INPUT_SCHEMA`）；`--baseline` 不匹配、扫描失败等 CLI 语义在 M12 交付。
+- 非完整报告或非 schema 2 报告不能建基线（退出 `2`，代码 `INPUT_INCOMPLETE`/`INPUT_SCHEMA`）。
+
+## M12：基线创建与增量 CI 判定（CLI 语义）
+
+- `moonportcheck baseline create REPORT.json`：`REPORT.json` 必须是 `baseline` 模式输出或 `scan`/`check` 的 schema 2 JSON 报告文档；成功时将文件重新解析（`parse_detailed_report`）并经 `build_baseline` 重新构造，输出固定 `moonportcheck-baseline` 文档并退出 `0`。坏 JSON、未知字段、非 schema 2 或不完整报告一律退出 `2`（`INPUT_JSON`/`INPUT_SCHEMA`/`INPUT_INCOMPLETE`）。
+- `moonportcheck scan ROOT --baseline BASELINE.json [--fail-on new]`：先解析基线，再校验基线与当次扫描的 `profile`、`rules_version`（= `"1"`）与有效 `scope` 是否一致；任一不匹配退出 `2`（`INPUT_SCHEMA`）。随后用 `diff_with_baseline` 把当前报告分组分类为 `new`/`existing`/`worsened`/`resolved`：
+  - `--fail-on new`：仅当存在 `new` 或 `worsened` 分组时退出 `1`；否则 `0`。
+  - 默认（不带 `--fail-on`）：仍按全部诊断判定，只要有 findings 就退出 `1`。
+  - 扫描不完整（`complete == false`）始终退出 `3`，优先级最高，基线不能豁免失败的扫描。
+- 输出仍是普通 scan 报告（text/json 与无基线时逐字节一致）；基线只改变退出码判定，不改变报告内容。
 
 ## 机器消费者迁移步骤1. 对审计／错误对象先验证 `schema_version === 2`，再区分 `error` 与审计报告；规则查询仍按数组读取。
 2. 将原来在 `diagnostics` 中筛选 `SCAN_*` 的代码移到外层 `scan_issues`。统计路径问题时使用 `summary.diagnostic_groups`，统计扫描问题时使用 `summary.scan_issues`。

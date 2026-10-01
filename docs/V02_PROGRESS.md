@@ -156,3 +156,10 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - M11 交付「Baseline 模型及分类核心」，实现同上条目。新增 baseline.mbt 约 330 行、baseline_test.mbt 5 项测试。
 - 验证（Windows，2026-10-01）：核心测试 **87/87**×2 双目标；完整 run_check 通过（API 门禁、node 测试、parity **71** 逐字节一致含基线 fixture、代码量 **4869** 行 >3000）；本机 acceptance `passed:true`（证据 acceptance-win32-2026-10-01T04-16-28-035Z/evidence.json）。
 - **远端验收已完成**：基于用户的全局提交授权（2026-10-01），M11 以 `e6bac9fb8d994a93c933df6b3773fa71ba542aeb` 提交并推送至 `codex/october-v0.2`（Draft PR #1）；公开 CI [36814438312](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36814438312) 的 windows-latest 与 ubuntu-24.04 两个 job 均 success（各自 Acceptance 步骤通过）。M11 由此记为 `complete`，可进入 M12。
+### 2026-10-01：M12 本地实现与验证（远端 CI 待核验）
+
+- M12 交付「基线创建与增量 CI 判定」。新增根包 `parse_baseline`（严格字段/版本校验、仅接受规范 baseline 文档）与 `detailed.mbt::parse_detailed_report`（schema 2 报告 JSON 全量回读：summary/diagnostics/成员/scan_issues/scope 等，未知字段拒绝、整数与布尔严格校验），并聚成 baseline create 往返：`parse_detailed_report ∘ build_baseline` 在 parity 中逐字节重建同一 baseline 文档。
+- 桥接新增 `baseline` 模式（读取报告文本 → parse_detailed_report → build_baseline → 输出固定 baseline JSON，exit 0；非 schema 2/不完整/坏 JSON 一律 exit 2）与 `scan` 模式可选的 `baseline_text` 门禁：先 parse_baseline，再核验 profile/rules_version/有效 scope 是否与当次扫描一致（不一致 → exit 2），随后 diff_with_baseline 分类；`--fail-on new` 对 new/worsened 返回 1，默认仍按全部诊断判定（有 findings 即 1）；**扫描不完整始终 exit 3、绝不被基线豁免**（report.complete==false 优先级最高）。
+- host 参数解析新增 `baseline` 模式（`baseline create REPORT.json` 子命令，拒绝 --config/--exclude/--format，输出固定 JSON）与 `scan --baseline FILE`、`scan --fail-on new`（仅 scan 可用、--fail-on 必须有 --baseline、仅接受值 new）；bin 接入 `baseline` 分支并在 scan 请求上附加 baseline_text/fail_on。
+- 验证（Windows，2026-10-01）：核心测试增至 JS/wasm-gc 各 **88/88**（新增 1 项 baseline/schema2 报告解析往返相等测试）；完整 run_check 通过（API 门禁、node 测试 41+20 全过、parity **72** 份逐字节一致且含 baseline create 往返 fixture、fmt 全部通过），代码量 total **5544** 行（>3000）；本机 acceptance `passed:true`（证据 `acceptance-win32-2026-10-01T04-32-21-259Z/evidence.json`）。记录于 `artifacts/m12-runcheck.out`。
+- **远端验证待核验**：M12 将提交并 push 至 `codex/october-v0.2`，随后核对该 SHA 的双平台 CI；通过后置 complete 进 M13（diff --format markdown 与 check --report sarif）。

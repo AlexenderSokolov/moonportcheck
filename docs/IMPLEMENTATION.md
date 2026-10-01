@@ -216,5 +216,34 @@ path/kind member or a higher count is `worsened`; otherwise it is `existing`
 (including groups that lost members). Report groups absent from the baseline are
 `new`. Changes sort by status rank (`new`, `worsened`, `existing`, `resolved`)
 then code and anchor. `cmd/parity` gains a baseline and a baseline-diff fixture
-(71 reports total); the `baseline` command and `scan --baseline --fail-on`
-arrive in M12.
+(71 reports at M11).
+
+## M12: baseline create and scan --baseline --fail-on
+
+`parse_baseline(String)` returns a `Baseline` (from `baseline.mbt`) from a
+document produced by `render_baseline_json`; it is strict about the format and
+version fields, rejects unknown fields, and normalizes the bound effective
+scope the same way as the report. `parse_detailed_report(String)` (from
+`detailed.mbt`) reads the full schema 2 report back (summary, diagnostics with
+members/source_examples, scan_issues, scope, exclusions, pruning); it validates
+integers and booleans strictly and rejects unknown fields so a newer report can
+never be silently downgraded. `baseline create` is that parse+rebuild round
+trip: passing `render_detailed_json(report)` through
+`build_baseline ∘ parse_detailed_report` regenerates the identical baseline
+document (asserted byte-for-byte in the parity fixture).
+
+The bridge adds a `baseline` mode (report text in, fixed baseline JSON out,
+exit 0; non-schema-2, incomplete or malformed input exits 2) and optional
+baseline gating for `scan`. A scan request carrying `baseline_text` parses the
+baseline, verifies the bound profile, rules version and effective scope against
+the current scan (any mismatch exits 2), and classifies via `diff_with_baseline`.
+Under `fail_on` the exit code is 1 only for `new` or `worsened` groups; the
+default judges the whole problem set (any findings exit 1). An incomplete scan
+always exits 3 before baseline policy is consulted — a baseline never exempts a
+failed scan.
+
+`baseline create REPORT.json` (host: `baseline` mode, subcommand `create`)
+rejects config, exclusions and `--format` since the document is fixed JSON.
+`scan ROOT --baseline BASELINE.json --fail-on new` adds `baseline_text` (and
+`fail_on`) to the scan request; `--fail-on` only accepts `new`, is only valid
+for scan, and requires `--baseline`.
