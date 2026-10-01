@@ -55,4 +55,4 @@ jobs:
           name: acceptance-${{ runner.os }}
           path: artifacts/
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 90

@@ -16,9 +16,10 @@ pub fn run_request(request : String) -> String {
     Some(String("text")) => "text"
     Some(String("json")) => "json"
     Some(String("markdown")) => "markdown"
+    Some(String("sarif")) => "sarif"
     _ =>
       return error_response(
-        "json", 2, "ARGUMENT_ERROR", "Format must be text, json or markdown.",
+        "json", 2, "ARGUMENT_ERROR", "Format must be text, json, markdown or sarif.",
       )
   }
   match fields.get("mode") {
@@ -562,6 +563,8 @@ fn report_response(
     @moonportcheck.render_detailed_json(report)
   } else if format == "markdown" {
     @moonportcheck.render_detailed_markdown(report)
+  } else if format == "sarif" {
+    @moonportcheck.render_check_sarif(report)
   } else {
     @moonportcheck.render_detailed_text(report)
   }
@@ -602,14 +605,50 @@ fn baseline_response(
   report : @moonportcheck.DetailedReport,
   fail_on_new : Bool,
 ) -> String {
-  let output = if format == "json" {
-    @moonportcheck.render_detailed_json(report)
-  } else if format == "markdown" {
-    @moonportcheck.render_detailed_markdown(report)
-  } else {
-    @moonportcheck.render_detailed_text(report)
-  }
   let diff = @moonportcheck.diff_with_baseline(baseline, report)
+  let classification = @moonportcheck.render_baseline_diff_json(diff)
+  let output = if format == "json" || format == "sarif" {
+    let raw = if format == "json" {
+      @moonportcheck.render_detailed_json(report)
+    } else {
+      @moonportcheck.render_check_sarif(report)
+    }
+    let document = @json.parse(raw) catch {
+      _ =>
+        return error_response(
+          format, 2, "INPUT_SCHEMA", "Invalid generated report.",
+        )
+    }
+    guard document is Object(output_fields) else {
+      return error_response(
+        format, 2, "INPUT_SCHEMA", "Invalid generated report shape.",
+      )
+    }
+    let classified = @json.parse(classification) catch {
+      _ =>
+        return error_response(
+          format, 2, "INPUT_SCHEMA", "Invalid generated baseline comparison.",
+        )
+    }
+    if format == "json" {
+      output_fields["baseline"] = classified
+    } else {
+      let properties : Map[String, Json] = Map([])
+      properties["baseline"] = classified
+      output_fields["properties"] = properties.to_json()
+    }
+    document.stringify()
+  } else if format == "markdown" {
+    @moonportcheck.render_detailed_markdown(report) +
+    "\n## Baseline comparison\n\n```json\n" +
+    classification +
+    "\n```\n"
+  } else {
+    @moonportcheck.render_detailed_text(report) +
+    "\nBaseline comparison: " +
+    classification +
+    "\n"
+  }
   let mut has_new = false
   let mut has_worsened = false
   for change in diff.changes {

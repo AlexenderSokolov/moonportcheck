@@ -1,7 +1,7 @@
 ///|
 /// Product version embedded in the SARIF driver metadata. Keep in step with
 /// package.json; the release script checks the match.
-const PRODUCT_VERSION : String = "0.2.0-dev"
+const PRODUCT_VERSION : String = "0.2.0"
 
 ///|
 /// The URI code space for artifact locations: ASCII letters, digits and
@@ -92,14 +92,19 @@ fn sarif_result(
   uri_path : String,
   members : Array[SourceMember],
 ) -> String {
-  let locations = "{\"physicalLocation\":{\"artifactLocation\":{\"uri\":" +
+  let locations = if check_path(uri_path, 1, []) is Some(_) {
+    ",\"locations\":[{\"physicalLocation\":{\"artifactLocation\":{\"uri\":" +
     quote(uri_escape_path(uri_path)) +
-    "}}}"
-  let related = if members.is_empty() {
+    "}}}]"
+  } else {
+    ""
+  }
+  let navigable = members.filter(item => check_path(item.path, 1, []) is Some(_))
+  let related = if navigable.is_empty() {
     ""
   } else {
     ",\"relatedLocations\":[" +
-    members
+    navigable
     .map(item => {
       "{\"physicalLocation\":{\"artifactLocation\":{\"uri\":" +
       quote(uri_escape_path(item.path)) +
@@ -114,10 +119,14 @@ fn sarif_result(
   quote(level) +
   ",\"message\":{\"text\":" +
   quote(message) +
-  "},\"locations\":[" +
+  "}" +
   locations +
-  "]" +
   related +
+  ",\"properties\":{\"path\":" +
+  quote(uri_path) +
+  ",\"members\":" +
+  render_source_members(members) +
+  "}" +
   "}"
 }
 

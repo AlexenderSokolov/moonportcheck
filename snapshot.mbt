@@ -173,6 +173,12 @@ pub fn parse_snapshot(text : String) -> Result[Snapshot, InputError] {
         })
     }
   }
+  if complete && !issues.is_empty() {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "A complete snapshot cannot contain scan issues.",
+    })
+  }
   sort_scan_issues(issues)
   Ok({
     profile,
@@ -257,7 +263,7 @@ pub fn audit_snapshot(
     schema_version: base.schema_version,
     profile: base.profile,
     source: "snapshot",
-    complete: base.complete && issues.is_empty(),
+    complete: snapshot.complete && base.complete && issues.is_empty(),
     summary: {
       entries: base.summary.entries,
       files: base.summary.files,
@@ -327,7 +333,7 @@ fn parse_snapshot_entries(
     }
     let entry = { path, kind, }
     if !entries.is_empty() &&
-      snapshot_entry_order(entries[entries.length() - 1], entry) >= 0 {
+      ordinal_compare(entries[entries.length() - 1].path, entry.path) >= 0 {
       return Err({
         code: "INPUT_SCHEMA",
         message: "Snapshot entries must be sorted and unique.",

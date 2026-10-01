@@ -9,13 +9,19 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'n
 import { join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { candidateArchiveName, ZIP_FIXED_DATE, ZIP_FIXED_TIME } from './zip-util.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
-const shortSha = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+const head = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' });
+assert.equal(head.status, 0, 'candidate packaging requires a Git HEAD');
+const shortSha = head.stdout.trim();
 const platform = process.platform;
 
-const packageFiles = ['bin/moonportcheck.mjs', 'lib/host.mjs', 'dist/bridge.js', 'package.json', 'LICENSE', 'README.md'];
+const packageFiles = ['bin/moonportcheck.mjs', 'lib/host.mjs', 'dist/bridge.js', 'package.json', 'LICENSE', 'README.md', 'PROJECT.md', 'CHANGELOG.md',
+  ...readdirSync(join(root, 'docs')).filter(name => name.endsWith('.md')).sort().map(name => `docs/${name}`),
+  ...readdirSync(join(root, 'examples')).filter(name => name.endsWith('.json')).sort().map(name => `examples/${name}`),
+];
 for (const relative of packageFiles) {
   assert.ok(statSync(join(root, relative)).isFile(), `${relative}: build the CLI and run from the repo root first`);
 }
@@ -46,7 +52,7 @@ function buildZip(files) {
     const crc = crc32(data);
     const local = Buffer.concat([
       Buffer.from('PK\x03\x04', 'latin1'),
-      u16(20), u16(0x0800), u16(0), u16(0x0021), u16(0),
+      u16(20), u16(0x0800), u16(0), u16(ZIP_FIXED_TIME), u16(ZIP_FIXED_DATE),
       u32(crc), u32(data.length), u32(data.length),
       u16(nameBytes.length), u16(0),
       nameBytes,
@@ -55,7 +61,7 @@ function buildZip(files) {
     chunks.push(local);
     central.push(Buffer.concat([
       Buffer.from('PK\x01\x02', 'latin1'),
-      u16(20), u16(20), u16(0x0800), u16(0), u16(0x0021), u16(0),
+      u16(20), u16(20), u16(0x0800), u16(0), u16(ZIP_FIXED_TIME), u16(ZIP_FIXED_DATE),
       u32(crc), u32(data.length), u32(data.length),
       u16(nameBytes.length), u16(0), u16(0), u16(0), u16(0),
       u32(0), u32(offset),
@@ -87,7 +93,7 @@ entries.push({ name: 'CHECKSUMS.txt', data: Buffer.from(`${checksumLines}\n`, 'u
 const zip = buildZip(entries);
 const artifactDir = join(root, 'artifacts', 'candidate');
 mkdirSync(artifactDir, { recursive: true });
-const archiveName = `moonportcheck-${version}-${platform}-${shortSha}.zip`;
+const archiveName = candidateArchiveName(version, platform, shortSha);
 const archivePath = join(artifactDir, archiveName);
 writeFileSync(archivePath, zip);
 

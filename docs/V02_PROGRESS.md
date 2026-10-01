@@ -6,6 +6,8 @@
 - 来源：用户于 2026-09-26 明确发送 `PLEASE IMPLEMENT THIS PLAN` 的 v0.2 计划；用户原始消息是执行范围和语义的最终依据。
 - 当前授权：创建公开仓库 `AlexenderSokolov/moonportcheck`、逐次 commit/push、建立并持续更新 Draft PR，以及最终独立审查通过后以 merge commit 保留全部提交合并。
 - 尚未授权：正式发布、Mooncakes 上传和赛事报名。公开开发授权不等于这些操作获准。
+
+2026-10-01 更新：用户在 Codex 明确要求“分析情况……然后正式发布”，已授权本轮正式发行及 Mooncakes 发布；赛事报名仍未授权。下面的历史阶段记录保留原时点状态，最新发布事实以 `RELEASE_AUDIT_2026-10-01.md` 和本账本末尾记录为准。
 - 执行边界：只实施本项目计划，保留已有改动；不删除文件，不重写历史，不倒拆提交，不改开发日期，不 force-push，不 squash。
 - 兼容原则：保持 v1 库接口和行为，CLI v0.2 审计 JSON 显式采用 schema 2；规则、退出码和完整性语义按计划验收。
 - 历史说明：v0.1 文档中的“未授权提交／远端”描述当时状态；本轮明确授权以上述用户消息为准。
@@ -230,3 +232,9 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - **独立审查结论**：每个里程碑均经「本机完整运行 run_check（moon fmt/check/test 双目标 → 重建 dist → node 测试 → parity → format-matrix → property → bench → code-stats 门禁）→ 本机 acceptance 6 场景（checks/demo/benchmark/consumer/package/unpack）→ 推送 → 双平台 CI 全部 job success」。候选包由独立纯 Node 读取器解包、在无编译器/无 MOON_HOME 的受限 PATH 下运行自证自洽；consumer-smoke 以独立 moon.work 本地模块消费库与复制版 CLI 且最终证据中不携带编译器。据此判定 **v0.2 功能与验收标准全部达成（本地双目标 + 双平台 CI）**；最终合并由用户批准后执行并另行核验。
 - **剩余限制（如实记录，不承诺消除）**：仅 ASCII 大小写折叠，不做 Unicode 等价/规范化关联；不检查路径长度上限、文件系统特定规则、权限与目标端状态；manifest 扫描不是原子快照；SARIF 报告仅作可获取报告示例，并未声明 GitHub Code Scanning 接收成功；`0.2.0-dev` 尚未正式发布（未 tag/发行物）。
 - **候选包证据**：`artifacts/candidate/`（CI `candidate-*` artifact 保留 90 天）；本机 `artifacts/benchmark.json`、`artifacts/reports/` 与各 `acceptance-*/evidence.json` 为配套观测证据。
+
+### 2026-10-01：发布前独立核验与修复
+
+- 实时核实原 `main` 为 `3cdc9d4980d2a7e9deb0139d67c7a591c9e2a119`，PR #1 已合并；合并提交 CI [36820799686](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36820799686) Windows/Linux 均通过。原账本的“合并待授权”描述已过时。
+- 上述“独立审查结论”把测试执行和独立消费混同于独立代码审查，证据不足；本轮由独立 reviewer 实际检查源码和产品边界，复现快照完整性/唯一性、diff 范围、SARIF 入口/非法导航、基线分类缺失、未知字段及验收选旧归档等问题。已补必要修复和回归，原记录作为历史保留，不再作为发布正确性的唯一依据。
+- 不重写 harness 开发历史，不删除文件。版本统一为 `0.2.0`，发布分支为 `codex/release-v0.2.0`；正式发布前核验该分支和合并提交的精确 SHA 双平台 CI。详细发现、修复与后续公开发布结果见发布审计及 GitHub Release。

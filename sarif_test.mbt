@@ -3,6 +3,17 @@
 ///| source lines, rule metadata and completeness expression.
 
 ///|
+test "sarif review keeps invalid paths in properties without navigation" {
+  for path in ["", "/absolute", "../outside", "C:/drive", "a//b", "a/./b"] {
+    let sarif = sarif_of(files([path]))
+    assert_false(sarif.contains("\"locations\""))
+    assert_false(sarif.contains("\"relatedLocations\""))
+    assert_true(sarif.contains("\"properties\":{\"path\":"))
+    assert_true(sarif.contains("\"members\":[{"))
+  }
+}
+
+///|
 fn sarif_of(entries : Array[@moonportcheck.PathEntry]) -> String {
   @moonportcheck.render_check_sarif(detailed(entries))
 }
@@ -35,7 +46,8 @@ test "sarif_report_is_two_point_one_with_uri_locations_and_no_region" {
     sarif.contains("\"uri\":\"%E7%A0%94%E7%A9%B6/%E7%BB%93%E6%9E%9C.txt%20\""),
   )
   assert_true(sarif.contains("\"uri\":\"CON.txt\""))
-  assert_true(sarif.contains("\"uri\":\"../bad\""))
+  assert_false(sarif.contains("\"uri\":\"../bad\""))
+  assert_true(sarif.contains("\"path\":\"../bad\""))
   assert_true(sarif.contains("\"executionSuccessful\":true"))
   // The model has no source line numbers; a location must never fabricate one.
   assert_true(sarif.contains("startLine") == false)

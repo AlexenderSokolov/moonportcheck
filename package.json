@@ -1,6 +1,6 @@
 {
   "name": "moonportcheck",
-  "version": "0.2.0-dev",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": { "node": ">=24 <25" },

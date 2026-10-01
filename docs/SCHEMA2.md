@@ -1,6 +1,6 @@
 # Schema 2：详细报告与消费迁移
 
-本文对应 `0.2.0-dev` 的 M04/M06/M07/M08/M09/M10/M11 详细诊断接口。源码处于开发阶段，尚未正式发布。M04 增加来源证据与独立扫描问题；M06 增加配置化排除与目录剪枝，并接入 `scope`、`excluded_entries`、`pruned_directories` 字段；M07 增加快照模型、解析与序列化（独立文档格式见下文「快照文档」）；M08 增加 `snapshot` 命令并使 `check` 接受快照；M09 增加快照差异核心与报告；M10 增加 `diff` 命令与退出语义；M11 增加基线模型与分类核心（独立文档格式见下）。SARIF 和 Markdown 报告与 `baseline`/`scan --baseline` 命令属于后续里程碑，不能由本文推断它们已经可用。
+本文对应 `0.2.0` 的详细诊断与消费接口。来源证据、配置排除、快照、差异、基线创建/增量检查以及 Markdown/SARIF 报告均已实现。实际发布与验收证据见 [发布审计](RELEASE_AUDIT_2026-10-01.md)。原库 v1 JSON 保持 schema 1；新 CLI JSON 审计报告与独立错误响应为 schema 2，快照与基线各用独立版本化文档。
 
 ## 选择需要的接口
 
@@ -203,12 +203,13 @@ schema 2 保留 `profile`、`source`、`complete`、`summary`、`diagnostics` �
 
 ## M12：基线创建与增量 CI 判定（CLI 语义）
 
-- `moonportcheck baseline create REPORT.json`：`REPORT.json` 必须是 `baseline` 模式输出或 `scan`/`check` 的 schema 2 JSON 报告文档；成功时将文件重新解析（`parse_detailed_report`）并经 `build_baseline` 重新构造，输出固定 `moonportcheck-baseline` 文档并退出 `0`。坏 JSON、未知字段、非 schema 2 或不完整报告一律退出 `2`（`INPUT_JSON`/`INPUT_SCHEMA`/`INPUT_INCOMPLETE`）。
+- `moonportcheck baseline create REPORT.json`：输入必须是 `scan`/`check` 的 schema 2 JSON 审计报告（不是 baseline 文档本身）；成功时经 `parse_detailed_report` 和 `build_baseline` 输出固定 `moonportcheck-baseline` 文档并退出 `0`。坏 JSON、未知字段、非 schema 2 或不完整报告退出 `2`（`INPUT_JSON`/`INPUT_SCHEMA`/`INPUT_INCOMPLETE`）。
 - `moonportcheck scan ROOT --baseline BASELINE.json [--fail-on new]`：先解析基线，再校验基线与当次扫描的 `profile`、`rules_version`（= `"1"`）与有效 `scope` 是否一致；任一不匹配退出 `2`（`INPUT_SCHEMA`）。随后用 `diff_with_baseline` 把当前报告分组分类为 `new`/`existing`/`worsened`/`resolved`：
   - `--fail-on new`：仅当存在 `new` 或 `worsened` 分组时退出 `1`；否则 `0`。
   - 默认（不带 `--fail-on`）：仍按全部诊断判定，只要有 findings 就退出 `1`。
   - 扫描不完整（`complete == false`）始终退出 `3`，优先级最高，基线不能豁免失败的扫描。
-- 输出仍是普通 scan 报告（text/json 与无基线时逐字节一致）；基线只改变退出码判定，不改变报告内容。
+- 发布版保留当前全部诊断，并附加派生基线分类：JSON 增加可选 `baseline` 字段（`moonportcheck-baseline-diff` 对象），SARIF 放在顶层 `properties.baseline`，text/Markdown 追加分类信息；未使用基线的报告形状不变。`parse_detailed_report` 接受并忽略这个已知派生字段，新建基线仍只使用真实当前诊断。
+- `scan/check --format sarif` 和兼容入口 `--report sarif` 都输出 SARIF 2.1.0；结构非法路径只保存于消息及 `properties.path/members`，不制造导航位置。快照 `complete:false` 即使没有扫描问题详情也保持不完整；同一路径不同类型、`complete:true` 且含扫描问题的矛盾输入拒绝。
 
 ## 机器消费者迁移步骤1. 对审计／错误对象先验证 `schema_version === 2`，再区分 `error` 与审计报告；规则查询仍按数组读取。
 2. 将原来在 `diagnostics` 中筛选 `SCAN_*` 的代码移到外层 `scan_issues`。统计路径问题时使用 `summary.diagnostic_groups`，统计扫描问题时使用 `summary.scan_issues`。

@@ -1,35 +1,49 @@
-// M16 dual-OS unpack-and-run: extract the newest candidate archive with the
+// M16 dual-OS unpack-and-run: extract the exact current candidate archive with the
 // shared pure-Node reader, then execute the packaged CLI from the extracted
 // tree under a runtime PATH that contains only Node's directory. Proves the
 // candidate is self-contained (no compiler, no MOON_HOME) on the current OS.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, posix, resolve } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { parseZipEntries } from './zip-util.mjs';
+import { candidateArchiveName, parseZipEntries } from './zip-util.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const candidateDir = join(root, 'artifacts', 'candidate');
 
-function newestArchive() {
-  const zips = readdirSync(candidateDir).filter((name) => name.endsWith('.zip'));
-  assert.ok(zips.length > 0, 'no candidate archive under artifacts/candidate');
-  zips.sort();
-  return resolve(candidateDir, zips[zips.length - 1]);
+const expectedVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+function currentArchive() {
+  const head = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' });
+  assert.equal(head.status, 0, 'candidate verification requires a Git HEAD');
+  return join(candidateDir, candidateArchiveName(expectedVersion, process.platform, head.stdout.trim()));
 }
 
-const archivePath = process.argv[2] ? resolve(process.argv[2]) : newestArchive();
+const archivePath = process.argv[2] ? resolve(process.argv[2]) : currentArchive();
 const zip = readFileSync(archivePath);
 const sha256 = createHash('sha256').update(zip).digest('hex');
 const entries = parseZipEntries(zip);
+const checksums = entries.get('CHECKSUMS.txt');
+assert.ok(checksums, 'candidate must contain CHECKSUMS.txt');
+const checked = new Set();
+for (const line of checksums.data.toString('utf8').trim().split('\n')) {
+  const match = /^([a-f0-9]{64})  (.+)$/.exec(line);
+  assert.ok(match, `invalid checksum line ${line}`);
+  const [, digest, name] = match;
+  assert.ok(!checked.has(name), `duplicate checksum for ${name}`);
+  assert.ok(entries.has(name), `checksum names missing entry ${name}`);
+  assert.equal(createHash('sha256').update(entries.get(name).data).digest('hex'), digest, `sha256 mismatch for ${name}`);
+  checked.add(name);
+}
+assert.equal(checked.size, entries.size - 1, 'checksums must cover every payload file');
+assert.equal(JSON.parse(entries.get('package.json').data.toString('utf8')).version, expectedVersion, 'packaged version must match current source');
 
 const work = join(root, 'artifacts', `unpack-${process.platform}-${Date.now()}`);
 const target = join(work, 'pkg');
 for (const [name, { data }] of entries) {
-  const safe = posix.normalize(name).replace(/^([/\\])+/, '');
-  assert.ok(!safe.startsWith('..') && !safe.includes('\0'), `unsafe entry name ${name}`);
+  const safe = posix.normalize(name);
+  assert.ok(safe === name && !safe.startsWith('/') && !safe.startsWith('..') && !safe.includes('\0') && !safe.includes('\\') && !safe.includes(':'), `unsafe entry name ${name}`);
   const destination = resolve(target, ...safe.split('/'));
   mkdirSync(dirname(destination), { recursive: true });
   writeFileSync(destination, data);
@@ -49,6 +63,7 @@ function invoke(args, expected = 0) {
 }
 
 const version = invoke(['--version']).stdout.trim();
+assert.equal(version, expectedVersion, 'running CLI must report current source version');
 const manifest = join(work, 'hostile.json');
 writeFileSync(manifest, JSON.stringify([{ path: 'CON.txt', kind: 'file' }, { path: '中文/ok.txt', kind: 'file' }]));
 const findings = invoke(['check', manifest, '--format', 'json'], 1);
@@ -59,14 +74,37 @@ const clean = join(work, 'clean.json');
 writeFileSync(clean, JSON.stringify([{ path: '中文/ok.txt', kind: 'file' }]));
 const pass = invoke(['check', clean, '--format', 'markdown']);
 assert.ok(pass.stdout.includes('# MoonPortCheck report'));
+assert.ok(JSON.parse(invoke(['rules', '--format', 'json']).stdout).length > 0);
+assert.equal(JSON.parse(invoke(['explain', 'NAME_RESERVED', '--format', 'json']).stdout)[0].code, 'NAME_RESERVED');
+assert.equal(JSON.parse(invoke(['check', manifest, '--format', 'sarif'], 1).stdout).version, '2.1.0');
+const delivery = join(work, 'delivery');
+mkdirSync(delivery);
+writeFileSync(join(delivery, 'ok.txt'), '');
+writeFileSync(join(delivery, 'ignore.tmp'), '');
+const config = join(work, 'config.json');
+writeFileSync(config, JSON.stringify({ schema_version: 1, exclude: ['*.tmp'] }));
+const scanned = JSON.parse(invoke(['scan', delivery, '--config', config, '--format', 'json']).stdout);
+assert.equal(scanned.summary.entries, 1);
+assert.equal(scanned.excluded_entries, 1);
+assert.equal(JSON.parse(invoke(['scan', delivery, '--format', 'sarif']).stdout).version, '2.1.0');
+const snapshot = join(work, 'snapshot.json');
+writeFileSync(snapshot, invoke(['snapshot', delivery]).stdout);
+assert.equal(JSON.parse(invoke(['check', snapshot, '--format', 'json']).stdout).source, 'snapshot');
+assert.equal(JSON.parse(invoke(['diff', snapshot, snapshot, '--format', 'json']).stdout).changes.length, 0);
+const reportFile = join(work, 'report.json');
+writeFileSync(reportFile, invoke(['scan', delivery, '--format', 'json']).stdout);
+const baselineFile = join(work, 'baseline.json');
+writeFileSync(baselineFile, invoke(['baseline', 'create', reportFile]).stdout);
+invoke(['scan', delivery, '--baseline', baselineFile, '--fail-on', 'new']);
 
 console.log(JSON.stringify({
   unpack: 'ok',
   platform: process.platform,
-  archive: posix.basename(archivePath),
+  archive: basename(archivePath),
   sha256,
   entries: [...entries.keys()],
   version,
   findings_exit: 1,
   clean_exit: 0,
+  public_commands: ['scan', 'check', 'snapshot', 'diff', 'baseline create', 'rules', 'explain'],
 }, null, 2));

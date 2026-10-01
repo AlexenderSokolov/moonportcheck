@@ -398,6 +398,13 @@ pub fn parse_baseline(text : String) -> Result[Baseline, InputError] {
             message: "A baseline group must be an object.",
           })
         }
+        match
+          reject_unknown_fields(group_fields, [
+            "code", "anchor", "members", "source_total",
+          ]) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
         guard group_fields.get("code") is Some(String(code)) else {
           return Err({
             code: "INPUT_SCHEMA",

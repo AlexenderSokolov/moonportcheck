@@ -1,6 +1,34 @@
 ///| Test the snapshot model, canonicalization and strict parsing.
 
 ///|
+test "snapshot review preserves incomplete flag without issues" {
+  let parsed = match
+    @moonportcheck.parse_snapshot(
+      "{\"format\":\"moonportcheck-snapshot\",\"version\":1,\"profile\":\"portable-windows-v1\",\"complete\":false,\"scope\":[],\"entries\":[],\"scan_issues\":[]}",
+    ) {
+    Ok(snapshot) => snapshot
+    Err(error) => fail(error.message)
+  }
+  assert_false(audit_snapshot_of(parsed, []).complete)
+  assert_false(audit_snapshot_of(parsed, ["**"]).complete)
+}
+
+///|
+test "snapshot review rejects duplicate paths across kinds and contradictory completeness" {
+  let prefix = "{\"format\":\"moonportcheck-snapshot\",\"version\":1,\"profile\":\"portable-windows-v1\",\"complete\":true,\"scope\":[],"
+  for
+    suffix in [
+      "\"entries\":[{\"path\":\"a\",\"kind\":\"directory\"},{\"path\":\"a\",\"kind\":\"file\"}],\"scan_issues\":[]}",
+      "\"entries\":[],\"scan_issues\":[{\"code\":\"SCAN_IO_ERROR\",\"path\":\".\",\"message\":\"Failed.\"}]}",
+    ] {
+    match @moonportcheck.parse_snapshot(prefix + suffix) {
+      Err(error) => assert_eq(error.code, "INPUT_SCHEMA")
+      Ok(_) => fail("Invalid snapshot accepted")
+    }
+  }
+}
+
+///|
 fn snapshot_of(
   entries : Array[@moonportcheck.PathEntry],
   issues : Array[@moonportcheck.ScanIssue],

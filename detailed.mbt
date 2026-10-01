@@ -575,6 +575,19 @@ fn parse_int_field(
 }
 
 ///|
+fn reject_unknown_fields(
+  fields : Map[String, Json],
+  allowed : Array[String],
+) -> Result[Unit, InputError] {
+  for name in fields.keys() {
+    if !allowed.contains(name) {
+      return Err({ code: "INPUT_SCHEMA", message: "Unknown field: " + name, })
+    }
+  }
+  Ok(())
+}
+
+///|
 fn parse_diagnostic_strings(
   items : Array[Json],
   label : String,
@@ -604,6 +617,10 @@ fn parse_source_members(
         message: "A source member must be an object.",
       })
     }
+    match reject_unknown_fields(fields, ["path", "kind", "count"]) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
     guard fields.get("path") is Some(String(path)) else {
       return Err({
         code: "INPUT_SCHEMA",
@@ -632,6 +649,14 @@ fn parse_source_members(
 fn parse_detailed_diagnostic(
   fields : Map[String, Json],
 ) -> Result[DetailedDiagnostic, InputError] {
+  match
+    reject_unknown_fields(fields, [
+      "code", "severity", "paths", "occurrences", "message", "anchor", "group_key",
+      "members", "source_examples", "source_total", "sources_truncated",
+    ]) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   guard fields.get("code") is Some(String(code)) else {
     return Err({
       code: "INPUT_SCHEMA",
@@ -747,6 +772,15 @@ pub fn parse_detailed_report(
       message: "The report must be a JSON object.",
     })
   }
+  match
+    reject_unknown_fields(fields, [
+      "schema_version", "profile", "source", "complete", "summary", "diagnostics",
+      "limitations", "scan_issues", "scope", "excluded_entries", "pruned_directories",
+      "baseline",
+    ]) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   match fields.get("schema_version") {
     Some(Number(n, ..)) if n == 2.0 => ()
     _ =>
@@ -778,6 +812,13 @@ pub fn parse_detailed_report(
   }
   let summary = match fields.get("summary") {
     Some(Object(summary_fields)) => {
+      match
+        reject_unknown_fields(summary_fields, [
+          "entries", "files", "directories", "diagnostic_groups", "scan_issues",
+        ]) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
       let entries = match parse_int_field(summary_fields, "entries") {
         Err(error) => return Err(error)
         Ok(value) => value
@@ -850,11 +891,21 @@ pub fn parse_detailed_report(
       })
   }
   let scan_issues = match fields.get("scan_issues") {
-    Some(Array(items)) =>
+    Some(Array(items)) => {
+      for item in items {
+        if item is Object(issue_fields) {
+          match
+            reject_unknown_fields(issue_fields, ["code", "path", "message"]) {
+            Err(error) => return Err(error)
+            Ok(_) => ()
+          }
+        }
+      }
       match parse_snapshot_issues(items) {
         Err(error) => return Err(error)
         Ok(values) => values
       }
+    }
     _ =>
       return Err({
         code: "INPUT_SCHEMA",

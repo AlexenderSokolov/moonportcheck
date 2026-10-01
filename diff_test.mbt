@@ -1,6 +1,24 @@
 ///| Test the snapshot diff core: matching order, kinds, folding and stability.
 
 ///|
+test "diff review ignores changes outside inherited scope" {
+  let before = snapshot_of(
+    [snap_file("keep.txt"), snap_file("old.tmp"), snap_file("cache/old")],
+    [],
+    ["**/*.tmp", "cache/"],
+  )
+  let after = snapshot_of(
+    [snap_file("keep.txt"), snap_file("new.tmp"), snap_file("cache/new")],
+    [],
+    ["cache/", "**/*.tmp"],
+  )
+  assert_true(diff_of(before, after).changes.is_empty())
+  let invalid = snapshot_of([snap_file("../bad.tmp")], [], ["**/*.tmp"])
+  let empty = snapshot_of([], [], ["**/*.tmp"])
+  assert_eq(diff_of(empty, invalid).changes.length(), 1)
+}
+
+///|
 fn diff_of(
   before : @moonportcheck.Snapshot,
   after : @moonportcheck.Snapshot,

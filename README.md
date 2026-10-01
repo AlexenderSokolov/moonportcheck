@@ -2,7 +2,9 @@
 
 用 MoonBit 编写的跨平台路径预检库与离线 CLI。在把代码、数据或实验成果交给 Windows 用户前，检查文件名称、隐含目录及集合冲突。
 
-**当前源码版本：`0.2.0-dev`，尚未正式发布。** 检查配置固定为 `portable-windows-v1`。[公开仓库](https://github.com/AlexenderSokolov/moonportcheck) 持续开发，已加入规则查询、M04 详细报告、M06 配置化排除、M07 快照模型、M08 快照命令/快照检查、M09 快照差异核心、M10 `diff` 命令、M11 基线模型/分类核心、M12 `baseline create`/`scan --baseline --fail-on` 增量 CI 判定、M13 Markdown 差异表/SARIF 2.1.0 报告、M14 scan/check Markdown 报告与 CI 报告产物/步骤摘要，以及 M15 性质测试/规模验收（10 万输入、深路径、长前缀、大型单冲突组，LOC 硬门禁 ≥3000）与 M16 发布候选包（逐字节确定 ZIP，含 LICENSE/说明/校验和，双系统解包自验，候选证据保留 90 天）。各格式结论一致；新功能与验收仍按 [v0.2 计划](docs/V02_PLAN.md) 分步实施；实际里程碑与对应 CI 证据见 [执行账本](docs/V02_PROGRESS.md)。
+**当前源码版本：`0.2.0`。** 固定配置为 `portable-windows-v1`。提供可解释的规则查询、详细来源报告、配置化排除、目录快照与差异、历史问题基线及增量 CI 判定；`scan/check` 支持 text、JSON、Markdown、SARIF 2.1.0。完整开发与 CI 记录见 [执行账本](docs/V02_PROGRESS.md)，原始范围见 [v0.2 计划](docs/V02_PLAN.md)，发布前独立核验见 [发布审计](docs/RELEASE_AUDIT_2026-10-01.md)。
+
+CLI ZIP 下载入口：[GitHub v0.2.0 Release](https://github.com/AlexenderSokolov/moonportcheck/releases/tag/v0.2.0)。解包后以 `node bin/moonportcheck.mjs --help` 运行，需 Node.js 24，无需 MoonBit 编译器。归档附带 LICENSE、使用文档、样例与文件校验和；库发布入口为 [Mooncakes](https://mooncakes.io/docs/AlexenderSokolov/moonportcheck)。发布验证状态以发布审计和远端实际记录为准。
 
 ```text
 results/A.csv + results/a.csv  → PATH_CASE_COLLISION
@@ -39,10 +41,13 @@ node bin/moonportcheck.mjs check examples/windows-problems.json --format text
 ## 检查目录或清单
 
 ```text
-moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--format text|json]
+moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--baseline FILE] [--fail-on new] [--format text|json|markdown|sarif]
 moonportcheck snapshot ROOT [--config FILE] [--exclude PATTERN]...
-moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json]
-moonportcheck diff BEFORE.json AFTER.json [--format text|json]
+moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json|markdown|sarif]
+moonportcheck diff BEFORE.json AFTER.json [--format text|json|markdown]
+moonportcheck baseline create REPORT.json
+moonportcheck rules [--format text|json]
+moonportcheck explain CODE [--format text|json]
 moonportcheck --help
 moonportcheck --version
 ```
@@ -89,7 +94,7 @@ node bin/moonportcheck.mjs check examples/windows-problems.json --format json
 
 ## 作为 MoonBit 库使用
 
-模块名称为 `AlexenderSokolov/moonportcheck`，根包提供以下公共接口。发布前可通过 `moon.work` 引用本地模块；验收脚本会创建具有独立模块、包和工作区配置的消费项目，不能先假定 Mooncakes 已提供此版本。
+模块名称为 `AlexenderSokolov/moonportcheck`，根包提供以下公共接口。正式包发布后使用 `moon add AlexenderSokolov/moonportcheck@0.2.0`；也可通过 `moon.work` 引用本地模块。验收脚本创建独立模块、包和工作区验证原 v1 公共接口，公共注册表安装验证单独记录。
 
 | 接口 | 用途 |
 | --- | --- |
