@@ -275,4 +275,15 @@ fn main {
       },
     ),
   )
+  // M13: new core renderers. Markdown for the snapshot diff and a SARIF 2.1.0
+  // document for the report share byte-identical output across both targets.
+  println(
+    @moonportcheck.render_snapshot_diff_markdown(
+      match @moonportcheck.diff_snapshots(diff_before, diff_after) {
+        Ok(diff) => diff
+        Err(_) => abort("Parity snapshot diff failed")
+      },
+    ),
+  )
+  println(@moonportcheck.render_check_sarif(baseline_report))
 }

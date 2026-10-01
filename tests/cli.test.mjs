@@ -419,3 +419,24 @@ test('CLI baseline create writes a fixed document and scan --baseline gates exit
   const badCreate = invoke('baseline', 'create', badReportFile);
   assert.equal(badCreate.status, 2, badCreate.stdout);
 });
+
+test('CLI diff --format markdown and check --report sarif render new formats', async () => {
+  const root = await fixture();
+  const snapshotFile = path.join(root, 'snapshot.json');
+  const snap = invoke('snapshot', root);
+  assert.equal(snap.status, 0, snap.stdout);
+  await fs.writeFile(snapshotFile, snap.stdout);
+  const md = invoke('diff', snapshotFile, snapshotFile, '--format', 'markdown');
+  assert.equal(md.status, 0, md.stdout);
+  assert.match(md.stdout, /^# MoonPortCheck diff/);
+  assert.match(md.stdout, /No differences\./);
+  // A manifest with a finding exits 1 for JSON format and emits SARIF for sarif
+  const manifestFile = await manifest([{ path: 'CON.txt', kind: 'file' }]);
+  const sarif = invoke('check', manifestFile, '--report', 'sarif');
+  assert.equal(sarif.status, 1, sarif.stdout);
+  const doc = JSON.parse(sarif.stdout);
+  assert.equal(doc.version, '2.1.0');
+  assert.equal(doc.runs[0].tool.driver.name, 'MoonPortCheck');
+  assert.ok(doc.runs[0].results.some(r => r.ruleId === 'NAME_RESERVED' && r.locations[0].physicalLocation.artifactLocation.uri === 'CON.txt'));
+  assert.equal(doc.runs[0].invocations[0].executionSuccessful, true);
+});

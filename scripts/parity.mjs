@@ -14,9 +14,18 @@ const wasm = run('wasm-gc');
 const js = run('js');
 assert.deepEqual(js, wasm, 'serialized reports differ between JS and wasm-gc');
 const lines = js.toString('utf8').trimEnd().split('\n');
-assert.equal(lines.length, 72);
-const reports = lines.map(line => JSON.parse(line));
+const reports = lines.map(line => {
+  try { return JSON.parse(line); } catch { return null; }
+});
+assert.ok(reports[71], 'baseline round-trip line is JSON');
 assert.deepEqual(reports[71], reports[69], 'baseline create round-trip rebuilds the identical document');
+const markdownLine = lines.findIndex(line => line.startsWith('# MoonPortCheck diff'));
+assert.ok(markdownLine > 71, 'markdown diff line follows the baseline round trip');
+assert.match(lines.slice(markdownLine, markdownLine + 8).join('\n'), /\| added \| `new\.tmp` \| added as `file` \|/);
+const sarifLine = lines.findIndex(line => line.includes('"version":"2.1.0"'));
+assert.ok(sarifLine > markdownLine, 'SARIF line follows the markdown diff');
+assert.equal(reports[sarifLine].runs.length, 1);
+assert.equal(reports[sarifLine].runs[0].tool.driver.name, 'MoonPortCheck');
 for (let i = 0; i < 22; i += 2) assert.equal(lines[i], lines[i + 1], 'input order changed report');
 assert.equal(reports[0].summary.entries, 0);
 assert.equal(reports[2].diagnostics.length, 0);

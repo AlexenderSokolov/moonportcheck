@@ -15,9 +15,10 @@ pub fn run_request(request : String) -> String {
   let format = match fields.get("format") {
     Some(String("text")) => "text"
     Some(String("json")) => "json"
+    Some(String("markdown")) => "markdown"
     _ =>
       return error_response(
-        "json", 2, "ARGUMENT_ERROR", "Format must be text or json.",
+        "json", 2, "ARGUMENT_ERROR", "Format must be text, json or markdown.",
       )
   }
   match fields.get("mode") {
@@ -163,8 +164,9 @@ pub fn run_request(request : String) -> String {
                 Err(error) =>
                   error_response(format, 2, error.code, error.message)
                 Ok(scope) =>
-                  report_response(
+                  report_output(
                     format,
+                    fields,
                     @moonportcheck.audit_with_exclusions(
                       entries,
                       @moonportcheck.default_audit_options(),
@@ -185,7 +187,7 @@ pub fn run_request(request : String) -> String {
               match @moonportcheck.audit_snapshot(snapshot, extra) {
                 Err(error) =>
                   error_response(format, 2, error.code, error.message)
-                Ok(report) => report_response(format, report)
+                Ok(report) => report_output(format, fields, report)
               }
             }
           }
@@ -223,7 +225,7 @@ pub fn run_request(request : String) -> String {
       }
       let report = @moonportcheck.with_scan_issues(base, issues)
       match fields.get("baseline_text") {
-        None => report_response(format, report)
+        None => report_output(format, fields, report)
         Some(String(baseline_text)) => {
           let baseline = match @moonportcheck.parse_baseline(baseline_text) {
             Err(e) => return error_response(format, 2, e.code, e.message)
@@ -320,6 +322,7 @@ pub fn run_request(request : String) -> String {
       }
       let output = match format {
         "json" => @moonportcheck.render_snapshot_diff_json(diff)
+        "markdown" => @moonportcheck.render_snapshot_diff_markdown(diff)
         _ => @moonportcheck.render_snapshot_diff_text(diff)
       }
       let exit = if diff.complete == false {
@@ -561,6 +564,30 @@ fn report_response(
     @moonportcheck.render_detailed_text(report)
   }
   response(exit_code, output)
+}
+
+///|
+/// report_response, but a check request with report=sarif gets a SARIF 2.1.0
+/// document instead of the text/json report. The exit code semantics are the
+/// same: incomplete is 3, findings are 1, an empty result is 0.
+fn report_output(
+  format : String,
+  fields : Map[String, Json],
+  report : @moonportcheck.DetailedReport,
+) -> String {
+  match fields.get("report") {
+    Some(String("sarif")) => {
+      let exit_code = if !report.complete {
+        3
+      } else if report.diagnostics.is_empty() {
+        0
+      } else {
+        1
+      }
+      response(exit_code, @moonportcheck.render_check_sarif(report))
+    }
+    _ => report_response(format, report)
+  }
 }
 
 ///|

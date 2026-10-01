@@ -7,8 +7,8 @@ const help = `MoonPortCheck ${metadata.version} — portable-windows-v1
 Usage:
   moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--baseline BASELINE.json] [--fail-on new] [--format text|json]
   moonportcheck snapshot ROOT [--config FILE] [--exclude PATTERN]...
-  moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json]
-  moonportcheck diff BEFORE.json AFTER.json [--format text|json]
+  moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json] [--report sarif]
+  moonportcheck diff BEFORE.json AFTER.json [--format text|json|markdown]
   moonportcheck baseline create REPORT.json
   moonportcheck rules [--format text|json]
   moonportcheck explain CODE [--format text|json]
@@ -23,7 +23,11 @@ snapshot writes the fixed-format snapshot JSON document to stdout (no --format);
 exit 0 when the scan was complete and 3 when it was not.
 diff compares two snapshot documents: exit 0 with no changes, 1 with changes,
 2 for a malformed document or mismatched scopes, and 3 when either input is
-incomplete. It never infers renames or content changes.
+incomplete. It never infers renames or content changes. --format markdown
+renders a Markdown table.
+check --report sarif emits a SARIF 2.1.0 document. Locations carry only the
+artifact URI because the model has no source line numbers; no region or source
+line is fabricated.
 baseline create turns a complete schema 2 report into the baseline JSON
 document (exit 0); non-schema-2 or incomplete reports exit 2. scan --baseline
 compares the scan against that baseline and exits 2 when the baseline does not
@@ -95,6 +99,7 @@ async function main() {
           request = { mode: 'baseline', format: 'json', report_text: await readManifest(options.target) };
         } else {
           request = { mode: 'check', format: options.format, manifest_text: await readManifest(options.target), exclude_patterns: scope.patterns };
+          if (options.report) request.report = options.report;
         }
       }
     } catch (error) {

@@ -50,6 +50,8 @@ pub fn render_baseline_diff_text(BaselineDiff) -> String
 
 pub fn render_baseline_json(Baseline) -> String
 
+pub fn render_check_sarif(DetailedReport) -> String
+
 pub fn render_detailed_json(DetailedReport) -> String
 
 pub fn render_detailed_text(DetailedReport) -> String
@@ -62,6 +64,8 @@ pub fn render_rules_text(Array[RuleInfo]) -> String
 
 pub fn render_snapshot_diff_json(SnapshotDiff) -> String
 
+pub fn render_snapshot_diff_markdown(SnapshotDiff) -> String
+
 pub fn render_snapshot_diff_text(SnapshotDiff) -> String
 
 pub fn render_snapshot_json(Snapshot) -> String
@@ -71,6 +75,8 @@ pub fn render_text(Report) -> String
 pub fn rules() -> Array[RuleInfo]
 
 pub fn rules_version() -> String
+
+pub fn uri_escape_path(String) -> String
 
 pub fn with_scan_issues(DetailedReport, Array[ScanIssue]) -> DetailedReport
 

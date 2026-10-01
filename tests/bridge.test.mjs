@@ -215,3 +215,24 @@ test('scan --baseline gates exits for new, worsened and mismatched baselines', (
   assert.equal(scopeMismatch.exit_code, 2, scopeMismatch.output);
   assert.match(scopeMismatch.output, /scope/);
 });
+
+test('diff --format markdown renders a table and check --report sarif emits 2.1.0', () => {
+  const snap = (entries) => run({ mode: 'snapshot', format: 'json', entries, scan_issues: [], exclude_patterns: [] }).output;
+  const before = snap([{ path: 'a.txt', kind: 'file' }]);
+  const after = snap([{ path: 'b.txt', kind: 'file' }]);
+  const md = run({ mode: 'diff', format: 'markdown', before_text: before, after_text: after });
+  assert.equal(md.exit_code, 1, md.output);
+  assert.match(md.output, /^# MoonPortCheck diff/);
+  assert.match(md.output, /\| added \| `b\.txt` \| added as `file` \|/);
+  assert.match(md.output, /\| removed \| `a\.txt` \| removed as `file` \|/);
+  const rs = run({ mode: 'check', format: 'json', report: 'sarif', manifest_text: JSON.stringify([{ path: 'CON.txt', kind: 'file' }]), exclude_patterns: [] });
+  assert.equal(rs.exit_code, 1, rs.output);
+  const doc = JSON.parse(rs.output);
+  assert.equal(doc.version, '2.1.0');
+  assert.equal(doc.runs[0].tool.driver.name, 'MoonPortCheck');
+  assert.equal(doc.runs[0].invocations[0].executionSuccessful, true);
+  const hit = doc.runs[0].results.find(r => r.ruleId === 'NAME_RESERVED');
+  assert.ok(hit);
+  assert.equal(hit.locations[0].physicalLocation.artifactLocation.uri, 'CON.txt');
+  assert.equal(JSON.stringify(doc).includes('startLine'), false);
+});

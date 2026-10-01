@@ -270,3 +270,72 @@ pub fn render_snapshot_diff_text(diff : SnapshotDiff) -> String {
   }
   warning + lines.join("\n") + "\n"
 }
+
+///|
+/// Escape a table cell so pipes and newline characters cannot break rows.
+fn md_cell(value : String) -> String {
+  let chars : Array[Char] = []
+  for char in value {
+    let code = char.to_int()
+    if code == 124 {
+      chars.push('\\')
+      chars.push('|')
+    } else if code == 10 {
+      chars.push('\\')
+      chars.push('n')
+    } else {
+      chars.push(char)
+    }
+  }
+  String::from_iter(chars.iter())
+}
+
+///|
+/// Stable Markdown rendering of a snapshot diff. An incomplete input is flagged
+/// with a block quote before the table.
+pub fn render_snapshot_diff_markdown(diff : SnapshotDiff) -> String {
+  let warning = if diff.complete {
+    ""
+  } else {
+    "> INCOMPLETE: the input snapshot is incomplete; the diff is not trustworthy.\n\n"
+  }
+  if diff.changes.is_empty() {
+    return "# MoonPortCheck diff\n\n" + warning + "No differences.\n"
+  }
+  let rows = diff.changes.map(change => {
+    match change.kind {
+      Added =>
+        "| added | `" +
+        md_cell(change.path) +
+        "` | added as `" +
+        md_cell(change.after_kind) +
+        "` |"
+      Removed =>
+        "| removed | `" +
+        md_cell(change.path) +
+        "` | removed as `" +
+        md_cell(change.before_kind) +
+        "` |"
+      KindChanged =>
+        "| kind | `" +
+        md_cell(change.path) +
+        "` | changed from `" +
+        md_cell(change.before_kind) +
+        "` to `" +
+        md_cell(change.after_kind) +
+        "` |"
+      CaseChanged =>
+        "| case | `" +
+        md_cell(change.path) +
+        "` | cased from `" +
+        md_cell(change.paired_with) +
+        "` |"
+    }
+  })
+  "# MoonPortCheck diff\n\n" +
+  warning +
+  "| Kind | Path | Details |\n" +
+  "| --- | --- | --- |\n" +
+  rows.join("\n") +
+  "\n"
+}

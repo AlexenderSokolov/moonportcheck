@@ -149,3 +149,51 @@ test "diff_text_renders_stable_human_output" {
     "INCOMPLETE: the input snapshot is incomplete; the diff is not trustworthy.\nNo differences.\n",
   )
 }
+
+///|
+test "diff_markdown_renders_a_stable_table" {
+  let diff = diff_of(
+    snapshot_of(
+      [snap_file("a.txt"), snap_file("x.txt"), snap_file("dir")],
+      [],
+      [],
+    ),
+    snapshot_of(
+      [snap_file("X.txt"), snap_directory("dir"), snap_file("b.txt")],
+      [],
+      [],
+    ),
+  )
+  assert_eq(
+    @moonportcheck.render_snapshot_diff_markdown(diff),
+    "# MoonPortCheck diff\n\n" +
+    "| Kind | Path | Details |\n" +
+    "| --- | --- | --- |\n" +
+    "| added | `b.txt` | added as `file` |\n" +
+    "| removed | `a.txt` | removed as `file` |\n" +
+    "| kind | `dir` | changed from `file` to `directory` |\n" +
+    "| case | `X.txt` | cased from `x.txt` |\n",
+  )
+  let same = diff_of(
+    snapshot_of([snap_file("a.txt")], [], []),
+    snapshot_of([snap_file("a.txt")], [], []),
+  )
+  assert_eq(
+    @moonportcheck.render_snapshot_diff_markdown(same),
+    "# MoonPortCheck diff\n\nNo differences.\n",
+  )
+  let partial = diff_of(
+    snapshot_of(
+      [snap_file("x.txt")],
+      [issue("SCAN_LINK_SKIPPED", "x.txt", "Not followed.")],
+      [],
+    ),
+    snapshot_of([snap_file("x.txt")], [], []),
+  )
+  assert_eq(
+    @moonportcheck.render_snapshot_diff_markdown(partial),
+    "# MoonPortCheck diff\n\n" +
+    "> INCOMPLETE: the input snapshot is incomplete; the diff is not trustworthy.\n\n" +
+    "No differences.\n",
+  )
+}
