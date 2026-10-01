@@ -14,11 +14,15 @@ pub fn audit_with_exclusions(Array[PathEntry], AuditOptions, ExclusionScope) -> 
 
 pub fn audit_with_options(Array[PathEntry], AuditOptions) -> DetailedReport
 
+pub fn build_baseline(DetailedReport) -> Result[Baseline, InputError]
+
 pub fn build_snapshot(Array[PathEntry], Array[ScanIssue], Array[String]) -> Result[Snapshot, InputError]
 
 pub fn default_audit_options() -> AuditOptions
 
 pub fn diff_snapshots(Snapshot, Snapshot) -> Result[SnapshotDiff, InputError]
+
+pub fn diff_with_baseline(Baseline, DetailedReport) -> BaselineDiff
 
 pub fn effective_scope_patterns(ExclusionScope) -> Array[String]
 
@@ -35,6 +39,12 @@ pub fn parse_scope(Array[String]) -> Result[ExclusionScope, InputError]
 pub fn parse_snapshot(String) -> Result[Snapshot, InputError]
 
 pub fn pattern_matches(PathPattern, PathEntry) -> Bool
+
+pub fn render_baseline_diff_json(BaselineDiff) -> String
+
+pub fn render_baseline_diff_text(BaselineDiff) -> String
+
+pub fn render_baseline_json(Baseline) -> String
 
 pub fn render_detailed_json(DetailedReport) -> String
 
@@ -56,6 +66,8 @@ pub fn render_text(Report) -> String
 
 pub fn rules() -> Array[RuleInfo]
 
+pub fn rules_version() -> String
+
 pub fn with_scan_issues(DetailedReport, Array[ScanIssue]) -> DetailedReport
 
 // Errors
@@ -64,6 +76,56 @@ pub fn with_scan_issues(DetailedReport, Array[ScanIssue]) -> DetailedReport
 pub struct AuditOptions {
   // private fields
 }
+
+pub struct Baseline {
+  format : String
+  schema_version : Int
+  profile : String
+  rules_version : String
+  scope : Array[String]
+  groups : Array[BaselineGroup]
+} derive(Eq, @debug.Debug)
+pub fn Baseline::equal(Self, Self) -> Bool
+pub fn Baseline::not_equal(Self, Self) -> Bool
+pub fn Baseline::to_repr(Self) -> @debug.Repr
+
+pub struct BaselineChange {
+  code : String
+  anchor : String
+  status : BaselineStatus
+  members : Array[SourceMember]
+  source_total : Int
+} derive(Eq, @debug.Debug)
+pub fn BaselineChange::equal(Self, Self) -> Bool
+pub fn BaselineChange::not_equal(Self, Self) -> Bool
+pub fn BaselineChange::to_repr(Self) -> @debug.Repr
+
+pub struct BaselineDiff {
+  changes : Array[BaselineChange]
+} derive(Eq, @debug.Debug)
+pub fn BaselineDiff::equal(Self, Self) -> Bool
+pub fn BaselineDiff::not_equal(Self, Self) -> Bool
+pub fn BaselineDiff::to_repr(Self) -> @debug.Repr
+
+pub struct BaselineGroup {
+  code : String
+  anchor : String
+  members : Array[SourceMember]
+  source_total : Int
+} derive(Eq, @debug.Debug)
+pub fn BaselineGroup::equal(Self, Self) -> Bool
+pub fn BaselineGroup::not_equal(Self, Self) -> Bool
+pub fn BaselineGroup::to_repr(Self) -> @debug.Repr
+
+pub enum BaselineStatus {
+  New
+  Existing
+  Worsened
+  Resolved
+} derive(Eq, @debug.Debug)
+pub fn BaselineStatus::equal(Self, Self) -> Bool
+pub fn BaselineStatus::not_equal(Self, Self) -> Bool
+pub fn BaselineStatus::to_repr(Self) -> @debug.Repr
 
 pub(all) struct DetailedDiagnostic {
   code : String

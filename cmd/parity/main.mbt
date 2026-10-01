@@ -233,4 +233,26 @@ fn main {
       },
     ),
   )
+  let baseline_report = match
+    @moonportcheck.audit_snapshot(audit_target, ["results.tmp"]) {
+    Ok(report) => report
+    Err(_) => abort("Snapshot audit failed")
+  }
+  let baseline = match @moonportcheck.build_baseline(baseline_report) {
+    Ok(baseline) => baseline
+    Err(_) => abort("Baseline build failed")
+  }
+  println(@moonportcheck.render_baseline_json(baseline))
+  println(
+    @moonportcheck.render_baseline_diff_json(
+      @moonportcheck.diff_with_baseline(
+        baseline,
+        match
+          @moonportcheck.audit_snapshot(audit_target, ["CON.txt", "results.tmp"]) {
+          Ok(report) => report
+          Err(_) => abort("Snapshot audit failed")
+        },
+      ),
+    ),
+  )
 }

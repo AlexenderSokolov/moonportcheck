@@ -38,6 +38,7 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 | M08 | complete | Snapshot 命令与 check 快照支持 | `fbbd44adc62ad27a4247d9c83d84a936fe01381a` | [36811966576](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36811966576)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 固定 JSON 快照文档；check 继承范围、额外排除只能缩小、不完整始终不完整；获用户授权后 commit+push 并核验 CI |
 | M09 | complete | SnapshotDiff 核心与报告 | `ea6ee3ded486e75567c8f2c86169116783974ff4` | [36812671506](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36812671506)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 新增/移除/类型/大小写；先精确匹配再 ASCII 折叠、一对一且类型相同才标大小写；范围不同拒绝；用户已全局授权后 commit+push 并核验 CI |
 | M10 | complete | `diff` 命令与退出语义 | `442905a2eebb25269fdfd455d87113af87a103e0` | [36813476583](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36813476583)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 退出 0/1/2/3；范围不同与文档损坏 2、不完整输入 3、无变化 0、有变化 1；text/json；用户已全局授权后 commit+push 并核验 CI |
+| M11 | in_progress | Baseline 模型及分类核心 | — | 待提交后核验 | 只从完整 schema2 报告建基线；new/existing/worsened/resolved；成员与次数多重集比较；本地完成情况见追加记录 |
 | M07 | pending | Snapshot 模型与序列化 | — | — | 往返、稳定排序、损坏输入 |
 | M08 | pending | snapshot CLI 与快照检查 | — | — | 真实导出、完整性继承 |
 | M09 | pending | SnapshotDiff 核心与报告 | — | — | 新增、移除、类型、大小写变化 |
@@ -143,3 +144,9 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - M10 交付「diff 命令与退出语义」，实现同上条目。
 - 验证（Windows，2026-10-01）：核心测试 **82/82**×2 双目标；完整 run_check 通过（API 门禁、node 测试、parity **69**、代码量 **4474** 行 >3000）；本机 acceptance `passed:true`（证据 acceptance-win32-2026-10-01T04-03-08-969Z/evidence.json）。
 - **远端验收已完成**：基于用户的全局提交授权（2026-10-01），M10 以 `442905a2eebb25269fdfd455d87113af87a103e0` 提交并推送至 `codex/october-v0.2`（Draft PR #1）；公开 CI [36813476583](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36813476583) 的 windows-latest 与 ubuntu-24.04 两个 job 均 success（各自 Acceptance 步骤通过）。M10 由此记为 `complete`，可进入 M11。
+
+### 2026-10-01：M11 本地实现与验证（远端 CI 待核验）
+
+- M11 交付「Baseline 模型及分类核心」。新增 baseline.mbt：`BaselineStatus`/`BaselineGroup`/`Baseline`/`BaselineChange`/`BaselineDiff`、`rules_version()`、`build_baseline`（仅接受完整 schema 2 报告，否则 INPUT_SCHEMA/INPUT_INCOMPLETE；绑定 profile、规则版本与有效范围）、`diff_with_baseline`（按 code+anchor 关联同组，成员路径/类型与次数按多重集比较：整组消失→resolved、新增成员或次数上升→worsened、其余→existing、无基线组→new；按状态序+code/anchor 稳定排序）与 `render_baseline_json`/`render_baseline_diff_json`/`render_baseline_diff_text`。parity 增加基线 fixture 至 **71** 份。
+- 验证（Windows，2026-10-01）：核心测试增加到 JS/wasm-gc 各 **87/87**（新增 5 项 baseline 测试：非完整/非 schema2 拒绝、profile/规则版本/范围绑定与组成员、existing/resolved 分类、worsened/new 分类、渲染字节稳定）；完整 run_check 通过（API 门禁、node 测试、parity **71** 逐字节一致、代码量 **4869** 行 >3000）；本机 acceptance `passed:true`（证据 acceptance-win32-2026-10-01T04-16-28-035Z/evidence.json）。记录 `artifacts/m11-runcheck.out`。
+- **远端验证待核验**：M11 将提交并 push 至 `codex/october-v0.2`，随后核对该 SHA 的双平台 CI；通过后置 complete 进 M12（baseline create 命令与 scan --baseline --fail-on）。

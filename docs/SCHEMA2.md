@@ -1,6 +1,6 @@
 # Schema 2：详细报告与消费迁移
 
-本文对应 `0.2.0-dev` 的 M04/M06/M07/M08/M09/M10 详细诊断接口。源码处于开发阶段，尚未正式发布。M04 增加来源证据与独立扫描问题；M06 增加配置化排除与目录剪枝，并接入 `scope`、`excluded_entries`、`pruned_directories` 字段；M07 增加快照模型、解析与序列化（独立文档格式见下文「快照文档」）；M08 增加 `snapshot` 命令并使 `check` 接受快照；M09 增加快照差异核心与报告；M10 增加 `diff` 命令与退出语义。基线、SARIF 和 Markdown 报告属于后续里程碑，不能由本文推断它们已经可用。
+本文对应 `0.2.0-dev` 的 M04/M06/M07/M08/M09/M10/M11 详细诊断接口。源码处于开发阶段，尚未正式发布。M04 增加来源证据与独立扫描问题；M06 增加配置化排除与目录剪枝，并接入 `scope`、`excluded_entries`、`pruned_directories` 字段；M07 增加快照模型、解析与序列化（独立文档格式见下文「快照文档」）；M08 增加 `snapshot` 命令并使 `check` 接受快照；M09 增加快照差异核心与报告；M10 增加 `diff` 命令与退出语义；M11 增加基线模型与分类核心（独立文档格式见下）。SARIF 和 Markdown 报告与 `baseline`/`scan --baseline` 命令属于后续里程碑，不能由本文推断它们已经可用。
 
 ## 选择需要的接口
 
@@ -169,6 +169,37 @@ schema 2 保留 `profile`、`source`、`complete`、`summary`、`diagnostics` �
 - 两份快照范围必须逐项相同，否则 `INPUT_SCHEMA`（CLI 侧退出 `2`）。`complete` 为两份输入的完整度取与；`diff` 命令在不完整输入时退出 `3`。M09 提供核心与渲染；M10 提供 `diff` 桥接模式与 CLI `moonportcheck diff BEFORE.json AFTER.json [--format text|json]`。
 
 `diff` 的退出码：范围不同或文档损坏退出 `2`、任一输入不完整退出 `3`、有变化退出 `1`、无变化退出 `0`。text 输出在前一行标注 `INCOMPLETE` 提示（不完整时），每行形如 `+ new.tmp (added, file)` / `- old.txt (removed, file)` / `~ C.txt (kind, file -> directory)` / `~ A.txt (case, a.txt -> A.txt)`。
+
+## 基线文档与分类（M11）
+
+`baseline`（M12 提供 CLI）从完整的 schema 2 审计报告创建固定 JSON 文档，绑定 profile、规则版本与有效检查范围：
+
+```json
+{
+  "format": "moonportcheck-baseline",
+  "schema_version": 1,
+  "profile": "portable-windows-v1",
+  "rules_version": "1",
+  "scope": ["*.tmp"],
+  "groups": [
+    { "code": "NAME_RESERVED", "anchor": "a/CON.txt", "members": [{ "path": "a/CON.txt", "kind": "file", "count": 1 }], "source_total": 1 }
+  ]
+}
+```
+
+分类以「规则编号＋稳定路径锚点」关联同一组，成员与次数按多重集比较，输出 `moonportcheck-baseline-diff`：
+
+```json
+{ "format": "moonportcheck-baseline-diff", "schema_version": 1,
+  "changes": [{ "code": "...", "anchor": "...", "status": "new|existing|worsened|resolved", "members": [...], "source_total": 0 }] }
+```
+
+- `resolved`：基线中有、对比报告中整组消失（`members` 为空、`source_total` 为 0）。
+- `existing`：同组仍在且没有任何成员计数上升（含成员减少的情况）。
+- `worsened`：同组新增成员路径/类型，或任一成员次数上升。
+- `new`：报告中有、基线中没有的组。
+- 变化列表按状态序 `new`、`worsened`、`existing`、`resolved` 再按 code/anchor 排序。
+- 非完整报告或非 schema 2 报告不能建基线（退出 `2`，代码 `INPUT_INCOMPLETE`/`INPUT_SCHEMA`）；`--baseline` 不匹配、扫描失败等 CLI 语义在 M12 交付。
 
 ## 机器消费者迁移步骤1. 对审计／错误对象先验证 `schema_version === 2`，再区分 `error` 与审计报告；规则查询仍按数组读取。
 2. 将原来在 `diagnostics` 中筛选 `SCAN_*` 的代码移到外层 `scan_issues`。统计路径问题时使用 `summary.diagnostic_groups`，统计扫描问题时使用 `summary.scan_issues`。

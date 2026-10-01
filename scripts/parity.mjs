@@ -14,7 +14,7 @@ const wasm = run('wasm-gc');
 const js = run('js');
 assert.deepEqual(js, wasm, 'serialized reports differ between JS and wasm-gc');
 const lines = js.toString('utf8').trimEnd().split('\n');
-assert.equal(lines.length, 69);
+assert.equal(lines.length, 71);
 const reports = lines.map(line => JSON.parse(line));
 for (let i = 0; i < 22; i += 2) assert.equal(lines[i], lines[i + 1], 'input order changed report');
 assert.equal(reports[0].summary.entries, 0);
@@ -71,4 +71,17 @@ assert.deepEqual(reports[68].changes.map(c => [c.kind, c.path, c.paired_with, c.
   ['kind', 'C.txt', '', 'file', 'directory'],
   ['case', 'A.txt', 'a.txt', 'file', 'file'],
 ]);
+assert.equal(reports[69].format, 'moonportcheck-baseline');
+assert.equal(reports[69].schema_version, 1);
+assert.equal(reports[69].profile, 'portable-windows-v1');
+assert.equal(reports[69].rules_version, '1');
+assert.deepEqual(reports[69].scope, ['*.tmp', 'cache/', 'results.tmp']);
+assert.deepEqual(reports[69].groups, [
+  { code: 'NAME_RESERVED', anchor: 'CON.txt', members: [{ path: 'CON.txt', kind: 'file', count: 1 }], source_total: 1 },
+]);
+assert.equal(reports[70].format, 'moonportcheck-baseline-diff');
+assert.deepEqual(reports[70].changes.map(c => [c.code, c.anchor, c.status, c.source_total]), [
+  ['NAME_RESERVED', 'CON.txt', 'resolved', 0],
+]);
+assert.deepEqual(reports[70].changes[0].members, []);
 console.log(JSON.stringify({ parity: 'pass', targets: ['js', 'wasm-gc'], reports: reports.length, bytes: js.length, sha256: createHash('sha256').update(js).digest('hex') }, null, 2));

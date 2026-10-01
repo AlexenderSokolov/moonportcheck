@@ -197,3 +197,24 @@ changes and `0` otherwise. `lib/host.mjs` `parseArguments` accepts `diff`
 `text`/`json` allowed) and the bin wires
 `moonportcheck diff BEFORE.json AFTER.json`. `cmd/parity` count stays 69 because
 the text rendering derives from the same diff structure.
+
+## M11 additions (v0.2, baseline model and classification core)
+
+New root `baseline.mbt`: `BaselineStatus` (`new`/`existing`/`worsened`/
+`resolved`), `BaselineGroup`, `Baseline`, `BaselineChange`, `BaselineDiff`,
+`rules_version()`, `build_baseline(DetailedReport)`, `diff_with_baseline` and
+the `render_baseline_json` / `render_baseline_diff_json` /
+`render_baseline_diff_text` serializers.
+
+`build_baseline` accepts only a complete schema 2 audit report (rejecting
+others with `INPUT_SCHEMA` or `INPUT_INCOMPLETE`) and records the active profile,
+the `rules_version()` string and the report's effective scan scope. The
+classification associates groups by `code + "\u0000" + anchor` (rule code plus
+stable path anchor). A baseline group with no matching report group is
+`resolved`; a matching group whose member multiset gained a fresh
+path/kind member or a higher count is `worsened`; otherwise it is `existing`
+(including groups that lost members). Report groups absent from the baseline are
+`new`. Changes sort by status rank (`new`, `worsened`, `existing`, `resolved`)
+then code and anchor. `cmd/parity` gains a baseline and a baseline-diff fixture
+(71 reports total); the `baseline` command and `scan --baseline --fail-on`
+arrive in M12.
