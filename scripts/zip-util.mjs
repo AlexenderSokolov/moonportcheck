@@ -4,6 +4,18 @@
 import { inflateRawSync } from 'node:zlib';
 import assert from 'node:assert/strict';
 
+export function candidateArchiveName(version, platform, shortSha) {
+  assert.match(version, /^[a-zA-Z0-9.+-]+$/, 'invalid candidate version');
+  assert.match(platform, /^[a-zA-Z0-9_-]+$/, 'invalid candidate platform');
+  assert.match(shortSha, /^[a-f0-9]+$/, 'invalid candidate commit');
+  return `moonportcheck-${version}-${platform}-${shortSha}.zip`;
+}
+
+// DOS fields are ordered time, then date. A deterministic valid timestamp is
+// midnight on 1980-01-01; date=0 would contain a nonexistent month and day.
+export const ZIP_FIXED_TIME = 0;
+export const ZIP_FIXED_DATE = 0x0021;
+
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -21,7 +33,6 @@ export function crc32(buffer) {
 
 export function parseZipEntries(zip) {
   // Locate the End Of Central Directory record from the tail.
-  const magic = Buffer.from('PK\x05\x06', 'latin1');
   let eocd = -1;
   const from = Math.max(0, zip.length - 65557);
   for (let i = zip.length - 22; i >= from; i--) {
@@ -35,6 +46,7 @@ export function parseZipEntries(zip) {
   for (let i = 0; i < fileCount; i++) {
     assert.equal(zip.readUInt32LE(cursor), 0x02014B50, 'bad central header');
     const method = zip.readUInt16LE(cursor + 10);
+    const centralCrc = zip.readUInt32LE(cursor + 16);
     const compressedSize = zip.readUInt32LE(cursor + 20);
     const uncompressedSize = zip.readUInt32LE(cursor + 24);
     const nameLength = zip.readUInt16LE(cursor + 28);
@@ -46,15 +58,19 @@ export function parseZipEntries(zip) {
     assert.equal(zip.readUInt32LE(localOffset), 0x04034B50, `bad local header for ${name}`);
     const localNameLength = zip.readUInt16LE(localOffset + 26);
     const localExtraLength = zip.readUInt16LE(localOffset + 28);
+    assert.equal(zip.readUInt16LE(localOffset + 8), method, `local method mismatch for ${name}`);
+    assert.equal(zip.subarray(localOffset + 30, localOffset + 30 + localNameLength).toString('utf8'), name, `local name mismatch for ${name}`);
     const dataStart = localOffset + 30 + localNameLength + localExtraLength;
     const compressed = zip.subarray(dataStart, dataStart + compressedSize);
     const storedCrc = zip.readUInt32LE(localOffset + 14);
+    assert.equal(storedCrc, centralCrc, `central crc mismatch for ${name}`);
     let data;
     if (method === 0) data = Buffer.from(compressed);
     else if (method === 8) data = inflateRawSync(compressed);
     else throw new Error(`unsupported zip method ${method} for ${name}`);
     assert.equal(data.length, uncompressedSize, `uncompressed size mismatch for ${name}`);
     assert.equal(crc32(data), storedCrc, `crc32 mismatch for ${name}`);
+    assert.ok(!entries.has(name), `duplicate zip entry ${name}`);
     entries.set(name, { crc32: storedCrc, data });
   }
   return entries;

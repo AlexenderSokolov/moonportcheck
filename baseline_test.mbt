@@ -176,3 +176,89 @@ test "baseline and schema 2 reports parse back to equal values" {
   }
   @test.assert_eq(parsed_baseline, baseline)
 }
+
+///|
+fn add_unknown_field(value : Json) -> Unit raise {
+  guard value is Object(fields) else { fail("Expected an object") }
+  fields["unexpected"] = true.to_json()
+}
+
+///|
+test "baseline strict fields reject top group and member extensions" {
+  let text = @moonportcheck.render_baseline_json(
+    baseline_of(detailed(files(["CON"]))),
+  )
+  for level in ["top", "group", "member"] {
+    let value = @json.parse(text) catch { _ => fail("Invalid fixture") }
+    guard value is Object(fields) else { fail("Expected baseline") }
+    guard fields.get("groups") is Some(Array(groups)) else {
+      fail("Expected groups")
+    }
+    guard groups[0] is Object(group) else { fail("Expected group") }
+    guard group.get("members") is Some(Array(members)) else {
+      fail("Expected members")
+    }
+    add_unknown_field(
+      if level == "top" {
+        value
+      } else if level == "group" {
+        groups[0]
+      } else {
+        members[0]
+      },
+    )
+    match @moonportcheck.parse_baseline(value.stringify()) {
+      Err(error) => assert_eq(error.code, "INPUT_SCHEMA")
+      Ok(_) => fail("Unknown baseline field accepted at " + level)
+    }
+  }
+}
+
+///|
+test "report strict fields reject nested extensions and allow baseline metadata" {
+  let report = @moonportcheck.with_scan_issues(detailed(files(["CON"])), [
+    issue("SCAN_IO_ERROR", "x", "Failed."),
+  ])
+  let text = @moonportcheck.render_detailed_json(report)
+  for level in ["top", "summary", "diagnostic", "member", "example", "issue"] {
+    let value = @json.parse(text) catch { _ => fail("Invalid fixture") }
+    guard value is Object(fields) else { fail("Expected report") }
+    guard fields.get("diagnostics") is Some(Array(diagnostics)) else {
+      fail("Expected diagnostics")
+    }
+    guard diagnostics[0] is Object(diagnostic) else {
+      fail("Expected diagnostic")
+    }
+    guard diagnostic.get("members") is Some(Array(members)) else {
+      fail("Expected members")
+    }
+    guard diagnostic.get("source_examples") is Some(Array(examples)) else {
+      fail("Expected examples")
+    }
+    guard fields.get("scan_issues") is Some(Array(issues)) else {
+      fail("Expected issues")
+    }
+    let target = match level {
+      "top" => value
+      "summary" => fields["summary"]
+      "diagnostic" => diagnostics[0]
+      "member" => members[0]
+      "example" => examples[0]
+      _ => issues[0]
+    }
+    add_unknown_field(target)
+    match @moonportcheck.parse_detailed_report(value.stringify()) {
+      Err(error) => assert_eq(error.code, "INPUT_SCHEMA")
+      Ok(_) => fail("Unknown report field accepted at " + level)
+    }
+  }
+  let value = @json.parse(text) catch { _ => fail("Invalid fixture") }
+  guard value is Object(fields) else { fail("Expected report") }
+  fields["baseline"] = @json.parse("{\"changes\":[]}") catch {
+    _ => fail("Invalid metadata")
+  }
+  match @moonportcheck.parse_detailed_report(value.stringify()) {
+    Ok(parsed) => assert_eq(parsed, report)
+    Err(error) => fail(error.message)
+  }
+}

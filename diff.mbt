@@ -97,11 +97,19 @@ pub fn diff_snapshots(
   }
   let before_kinds : Map[String, EntryKind] = Map([])
   let after_kinds : Map[String, EntryKind] = Map([])
+  let scope = match parse_scope(before.scope) {
+    Err(error) => return Err(error)
+    Ok(scope) => scope
+  }
   for entry in before.entries {
-    before_kinds[entry.path] = entry.kind
+    if !entry_excluded(scope, entry) {
+      before_kinds[entry.path] = entry.kind
+    }
   }
   for entry in after.entries {
-    after_kinds[entry.path] = entry.kind
+    if !entry_excluded(scope, entry) {
+      after_kinds[entry.path] = entry.kind
+    }
   }
   let remaining_before : Array[(String, EntryKind)] = []
   let remaining_after : Array[(String, EntryKind)] = []
@@ -207,7 +215,13 @@ pub fn diff_snapshots(
     }
   }
   changes.sort_by(change_order)
-  Ok({ complete: before.complete && after.complete, changes, })
+  Ok({
+    complete: before.complete &&
+    after.complete &&
+    before.scan_issues.is_empty() &&
+    after.scan_issues.is_empty(),
+    changes,
+  })
 }
 
 ///|

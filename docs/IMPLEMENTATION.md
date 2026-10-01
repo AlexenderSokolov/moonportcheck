@@ -250,6 +250,14 @@ for scan, and requires `--baseline`.
 
 ## M13: Markdown snapshot diffs and SARIF 2.1.0 check reports
 
+Release correction (2026-10-01): both `scan/check --format sarif` and the
+compatible `--report sarif` entry are wired, including baseline scans. Invalid
+relative paths remain in result properties without navigable locations.
+Baseline JSON reports keep all current diagnostics and add derived `baseline`
+classification; SARIF uses `properties.baseline`, text/Markdown append the
+classification. The historical milestone descriptions below describe their
+initial implementation and are superseded by this release correction.
+
 Two new core renderers plus CLI wiring: `render_snapshot_diff_markdown` in
 `diff.mbt` and `render_check_sarif` in a new `sarif.mbt`.
 
@@ -261,7 +269,7 @@ escaping for pipes and newlines so a hostile path cannot break the table
 (`md_cell`). `--format markdown` is accepted only by `diff` in `lib/host.mjs`.
 
 `render_check_sarif(DetailedReport)` emits a SARIF 2.1.0 document whose driver
-is `MoonPortCheck` (version 0.2.0-dev, informationUri the public repository),
+is `MoonPortCheck` (version 0.2.0, informationUri the public repository),
 one result per diagnostic and per scan issue, and a run invocation whose
 `executionSuccessful` equals `report.complete` (scan issues become `note`-level
 results). Every location carries only an artifact URI — the model has no source
@@ -315,6 +323,12 @@ peak RSS and report bytes to `artifacts/benchmark.json`. Both scripts run in
 statistics gate is now a hard floor: `node scripts/code-stats.mjs --min 3000`.
 
 ## M16: release-candidate package and full acceptance
+
+Release correction: unpack selects exactly the current version/platform/HEAD
+archive, verifies every payload SHA-256 and CLI version, then runs all public
+commands without a compiler. ZIP uses standard 1980-01-01 DOS fields and
+includes linked usage docs/examples. Candidate and acceptance artifacts are
+retained for 90 days; ordinary report artifacts retain 30 days.
 
 `scripts/package.mjs` builds a byte-deterministic ZIP (stored entries, fixed
 1980 timestamps, UTF-8 names, hand-written CRC32/central directory via the

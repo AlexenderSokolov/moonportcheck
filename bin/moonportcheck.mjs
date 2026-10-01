@@ -5,9 +5,9 @@ import { HostError, parseArguments, readConfig, readManifest, scan } from '../li
 const help = `MoonPortCheck ${metadata.version} — portable-windows-v1
 
 Usage:
-  moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--baseline BASELINE.json] [--fail-on new] [--format text|json|markdown]
+  moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--baseline BASELINE.json] [--fail-on new] [--format text|json|markdown|sarif]
   moonportcheck snapshot ROOT [--config FILE] [--exclude PATTERN]...
-  moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json|markdown] [--report sarif]
+  moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json|markdown|sarif]
   moonportcheck diff BEFORE.json AFTER.json [--format text|json|markdown]
   moonportcheck baseline create REPORT.json
   moonportcheck rules [--format text|json]
@@ -25,7 +25,7 @@ diff compares two snapshot documents: exit 0 with no changes, 1 with changes,
 2 for a malformed document or mismatched scopes, and 3 when either input is
 incomplete. It never infers renames or content changes. --format markdown
 renders a Markdown table.
-check --report sarif emits a SARIF 2.1.0 document. Locations carry only the
+scan/check --format sarif (or --report sarif) emits a SARIF 2.1.0 document. Locations carry only the
 artifact URI because the model has no source line numbers; no region or source
 line is fabricated. scan/check --format markdown render a Markdown report with
 the same conclusion and exit code as text/json/sarif.
@@ -85,7 +85,7 @@ async function main() {
           const scanned = await scan(options.target, { excludeMatch: prune });
           request = options.mode === 'snapshot'
             ? { mode: 'snapshot', format: 'json', ...scanned, exclude_patterns: scope.patterns }
-            : { mode: 'scan', format: options.format, ...scanned, exclude_patterns: scope.patterns };
+            : { mode: 'scan', format: options.report === 'sarif' ? 'sarif' : options.format, ...scanned, exclude_patterns: scope.patterns };
           if (options.mode === 'scan' && options.baseline !== undefined) {
             request.baseline_text = await readManifest(options.baseline);
             if (options.fail_on) request.fail_on = true;
