@@ -247,3 +247,29 @@ rejects config, exclusions and `--format` since the document is fixed JSON.
 `scan ROOT --baseline BASELINE.json --fail-on new` adds `baseline_text` (and
 `fail_on`) to the scan request; `--fail-on` only accepts `new`, is only valid
 for scan, and requires `--baseline`.
+
+## M13: Markdown snapshot diffs and SARIF 2.1.0 check reports
+
+Two new core renderers plus CLI wiring: `render_snapshot_diff_markdown` in
+`diff.mbt` and `render_check_sarif` in a new `sarif.mbt`.
+
+`render_snapshot_diff_markdown(SnapshotDiff)` renders a `# MoonPortCheck diff`
+document: a compact `INCOMPLETE` blockquote when the diff is not complete,
+otherwise a `| Kind | Path | Details |` table with one row per change
+(`added`/`removed`/`kind`/`case`), paths wrapped in backticks, and cell
+escaping for pipes and newlines so a hostile path cannot break the table
+(`md_cell`). `--format markdown` is accepted only by `diff` in `lib/host.mjs`.
+
+`render_check_sarif(DetailedReport)` emits a SARIF 2.1.0 document whose driver
+is `MoonPortCheck` (version 0.2.0-dev, informationUri the public repository),
+one result per diagnostic and per scan issue, and a run invocation whose
+`executionSuccessful` equals `report.complete` (scan issues become `note`-level
+results). Every location carries only an artifact URI — the model has no source
+line numbers, so no region and no source line is ever fabricated, and the URI
+is percent-encoded from the path's UTF-8 bytes (ASCII letters/digits and
+`-._~/` stay literal). Limitations render as `toolExecutionNotifications`.
+`--report sarif` is accepted only by `check` and sets `report:"sarif"`; the
+bridge's `report_output` routes to the SARIF renderer for check (manifest,
+snapshot and scan inputs alike) while `scan --baseline` keeps its text/json
+`baseline_response` gating. The parity fixture (81 lines) asserts the markdown
+and SARIF outputs are byte-identical between the js and wasm-gc targets.

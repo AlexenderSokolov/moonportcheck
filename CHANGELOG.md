@@ -14,6 +14,7 @@
 - M10 增加 `diff` 命令与文本渲染 `render_snapshot_diff_text`：`moonportcheck diff BEFORE.json AFTER.json [--format text|json]`，退出码 0=无变化、1=有变化、2=文档损坏或范围不同、3=任一输入不完整（text 输出标注 `INCOMPLETE`）。
 - M11 增加基线模型与分类核心 `BaselineStatus` / `Baseline` / `build_baseline` / `diff_with_baseline` 与渲染：基线只允许从完整 schema 2 报告创建（绑定 profile、规则版本与有效检查范围）；按「规则编号＋稳定路径锚点」关联同组，新增成员或次数上升为 `worsened`、整组消失为 `resolved`、同组减少仍为 `existing`、无基线组为 `new`；`moonportcheck-baseline` 与 `moonportcheck-baseline-diff` 固定文档。
 - M12 增加 `baseline create REPORT.json` 与 `scan ROOT --baseline BASELINE.json [--fail-on new]`：根包新增 `parse_baseline` 与 `parse_detailed_report`（schema 2 报告全量回读，strict 字段/整数/布尔校验），`baseline create` 即解析重构图文档的往返；`scan --baseline` 校验 profile/规则版本/有效 scope 后按基线分类，`--fail-on new` 仅对 `new`/`worsened` 退出 `1`，默认按全部诊断判定，扫描不完整始终退出 `3` 且不被基线豁免；基线只改退出码、不改报告输出。
+- M13 增加 Markdown 差异表与 SARIF 2.1.0 报告：`diff --format markdown` 输出 `# MoonPortCheck diff` 表格（管道符/换行已转义，不完整输入用 `> INCOMPLETE` 块引用标注）；`check --report sarif` 输出合法 SARIF 2.1.0 文档，位置仅含 artifact URI ——模型没有源码行号，绝不虚构 region/源码行，扫描问题映射为 `note` 级结果，`invocations[0].executionSuccessful` 反映扫描完整度。路径 URI 按 UTF-8 百分号编码，驱动器 `MoonPortCheck`、`PRODUCT_VERSION` 0.2.0-dev。
 - 快照、差异、基线和新的报告格式尚待对应里程碑实现。
 
 各里程碑的完成情况、提交与公开 CI 以 [V02_PROGRESS.md](docs/V02_PROGRESS.md) 为准；开发版本号不表示正式包发布或赛事验收。

@@ -39,13 +39,8 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 | M09 | complete | SnapshotDiff 核心与报告 | `ea6ee3ded486e75567c8f2c86169116783974ff4` | [36812671506](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36812671506)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 新增/移除/类型/大小写；先精确匹配再 ASCII 折叠、一对一且类型相同才标大小写；范围不同拒绝；用户已全局授权后 commit+push 并核验 CI |
 | M10 | complete | `diff` 命令与退出语义 | `442905a2eebb25269fdfd455d87113af87a103e0` | [36813476583](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36813476583)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 退出 0/1/2/3；范围不同与文档损坏 2、不完整输入 3、无变化 0、有变化 1；text/json；用户已全局授权后 commit+push 并核验 CI |
 | M11 | complete | Baseline 模型及分类核心 | `e6bac9fb8d994a93c933df6b3773fa71ba542aeb` | [36814438312](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36814438312)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 只从完整 schema2 报告建基线；new/existing/worsened/resolved；成员与次数多重集比较；用户已全局授权后 commit+push 并核验 CI |
-| M07 | pending | Snapshot 模型与序列化 | — | — | 往返、稳定排序、损坏输入 |
-| M08 | pending | snapshot CLI 与快照检查 | — | — | 真实导出、完整性继承 |
-| M09 | pending | SnapshotDiff 核心与报告 | — | — | 新增、移除、类型、大小写变化 |
-| M10 | pending | diff CLI 与退出语义 | — | — | 范围拒绝、不完整退出 3、中期 LOC |
-| M11 | pending | Baseline 模型与分类核心 | — | — | 身份、新成员、次数增加 |
-| M12 | pending | 基线创建与增量判定 | — | — | 旧问题可见、新增或恶化失败 |
-| M13 | pending | SARIF 与 Markdown 渲染 | — | — | 格式、路径编码、完整性 |
+| M12 | complete | 基线创建与增量 CI 判定 | 代码 `7d76f17` + 账本 `5e0978d`（HEAD `5e0978d1100df3e03bee898ccfa41a2397dedb39`） | [36815731750](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36815731750)：Windows/Linux 均通过（exact-SHA 5e0978d 的两个 job 均为 success） | baseline create 往返、scan --baseline 校验与 --fail-on new；扫描不完整始终 exit 3 不被基线豁免；用户已全局授权后 commit+push 并核验 CI |
+| M13 | in_progress | SARIF 2.1.0 与 Markdown 渲染 | 代码 `c0cad43`（本地已验证，远端 CI 待核验） | — | 格式、路径编码、完整性 |
 | M14 | pending | 新格式 CLI 与 Actions 摘要 | — | — | 格式结论一致、报告可获取 |
 | M15 | pending | 交叉／性质测试与规模验收 | — | — | 双目标、深路径、大组、LOC 门禁 |
 | M16 | pending | v0.2 候选包、文档与完整验收 | — | — | 双系统解包、独立消费、精确 SHA CI |
@@ -167,3 +162,10 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - M12 交付「基线创建与增量 CI 判定」：实现同上一目。新增根包 `parse_baseline`、`detailed.mbt::parse_detailed_report`（schema 2 报告全量回读、strict 字段/整数/布尔校验、未知字段拒绝）各约 355/70 行，桥接 `baseline` 模式与 scan `baseline_text` 门禁，host/bin 接入 `baseline create`/`scan --baseline --fail-on`，parity 增至 **72** 份并含 baseline create 往返逐字节一致 fixture。
 - 验证（Windows，2026-10-01）：核心测试 **88/88**×2 双目标；完整 run_check 通过（API 门禁、node 测试 41+20 全过、parity **72** 逐字节一致、fmt 全部通过），代码量 total **5544** 行（>3000）；本机 acceptance `passed:true`（证据 acceptance-win32-2026-10-01T04-32-21-259Z/evidence.json）。
 - **远端验收已完成**：基于用户的全局提交授权（2026-10-01），M12 代码以 `7d76f17` 提交、账本文档以 `5e0978d` 提交并推送至 `codex/october-v0.2`（Draft PR #1，HEAD `5e0978d1100df3e03bee898ccfa41a2397dedb39`）；公开 CI [36815731750](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36815731750) 的 windows-latest 与 ubuntu-24.04 两个 job 均 success（各自 Acceptance 步骤通过，exact-SHA 5e0978d）。M12 由此记为 `complete`，可进入 M13（diff --format markdown 与 check --report sarif）。
+
+### 2026-10-01：M13 本地实现与验证（远端 CI 待核验）
+
+- M13 交付「SARIF 2.1.0 与 Markdown 渲染」。新增根包 `diff.mbt::render_snapshot_diff_markdown`（`# MoonPortCheck diff` 文档：不完整输入用 `> INCOMPLETE` 块引用标注，否则 `| Kind | Path | Details |` 表格逐行输出 added/removed/kind/case，路径反引号包裹，`md_cell` 对管道符与换行转义防止破坏表格）与新增 `sarif.mbt::render_check_sarif`（合法 SARIF 2.1.0：driver=MoonPortCheck、version 0.2.0-dev、informationUri 公开仓库；逐诊断与逐扫描问题各一条 result，扫描问题映射到 `note` 级；`executionSuccessful`=report.complete；限制项进入 toolExecutionNotifications；**每个 location 只带 artifact URI——模型没有源码行号，绝不虚构 region/源码行**，URI 按路径 UTF-8 字节做百分号编码，ASCII 字母数字与 `-._~/` 原样保留，孤立代理项替换为 U+FFFD）。
+- 桥接 `report_output` 统一 diff/check 的 markdown 路由：`diff` 的 `--format markdown` 走 `render_snapshot_diff_markdown`，`check` 的 `report:"sarif"` 走 `render_check_sarif`（清单数组、快照对象与 scan 无基线分支同样适用），`scan --baseline` 仍走 baseline_response 门禁；根包 format 白名单扩为 text/json/markdown（markdown 仅 diff 使用）。host 参数解析允许 `diff --format markdown`、新增仅 `check` 可用的 `--report sarif`（重复/其他值/非 check 模式一律拒绝），bin 在 check 请求上附加 `report` 字段并更新帮助文本。
+- 验证（Windows，2026-10-01）：核心测试增至 JS/wasm-gc 各 **92/92**（新增 diff markdown 字节稳定表测试 1 项 + sarif_test 4 项：URI 百分号编码、2.1.0 文档含 NAME_RESERVED/PATH_DOT_COMPONENT/非 ASCII URI 且无 startLine/startColumn、扫描问题与 incomplete runs）；完整 run_check 通过（API 门禁、node 测试 45 项全过、parity **81** 份跨目标逐字节一致含 markdown+SARIF fixture、fmt 全部通过），代码量 total **5956** 行（>3000）；本机 acceptance `passed:true`（证据 `acceptance-win32-2026-10-01T04-51-28-975Z/evidence.json`）。记录于 `artifacts/m13-runcheck.out`。
+- **远端验证待核验**：M13 代码已以 `c0cad43` 提交，推送并核对该 SHA 的双平台 CI 后置 complete 进 M14（新格式 CLI 与 Actions 摘要）。
