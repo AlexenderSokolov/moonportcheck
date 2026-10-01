@@ -43,7 +43,7 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 | M13 | complete | SARIF 2.1.0 与 Markdown 渲染 | 代码 `c0cad43` + 账本 `19f6dae` | [36817190756](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36817190756)：Windows/Linux 均通过（exact-SHA 19f6dae 的两个 job 均为 success） | diff --format markdown、check --report sarif（仅 artifact URI、无虚构源码行）、路径百分号编码 |
 | M14 | complete | 新格式 CLI 与 Actions 摘要 | 代码 `d1968bb` + 账本 `ea5d2d8` | [36818004906](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818004906)：Windows/Linux 均通过（exact-SHA ea5d2d8 的两个 job 均为 success） | scan/check --format markdown 结论一致、format-matrix 门禁、reports-Windows/Linux artifact 与步骤摘要 |
 | M15 | complete | 交叉／性质测试与规模验收 | 代码 `483dfc1` + 账本 `f5d4c48` | [36818509733](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818509733)：Windows/Linux 均通过（exact-SHA f5d4c48 的两个 job 均为 success） | property 60 轮、bench 5 案例（100k/深路径/长前缀/10k 单组）、LOC 6125≥3000 硬门禁 |
-| M16 | in_progress | v0.2 候选包与完整验收 | 代码 `2a0f1bc`（本地已验证，远端 CI 待核验） | — | 候选 ZIP（LICENSE/说明/校验和）、双系统解包运行、90 天候选证据 |
+| M16 | complete | v0.2 候选包与完整验收 | 代码 `2a0f1bc` + 账本 `bca43fb` | [36818993646](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818993646)：Windows/Linux 均通过（exact-SHA bca43fb 的两个 job 均为 success） | 候选 ZIP（LICENSE/说明/校验和）、双系统解包运行、candidate-* artifact 90 天保留 |
 | M14 | pending | 新格式 CLI 与 Actions 摘要 | — | — | 格式结论一致、报告可获取 |
 | M15 | pending | 交叉／性质测试与规模验收 | — | — | 双目标、深路径、大组、LOC 门禁 |
 | M16 | pending | v0.2 候选包、文档与完整验收 | — | — | 双系统解包、独立消费、精确 SHA CI |
@@ -211,3 +211,22 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - ci.yml 新增「Retain release-candidate archive」：`candidate-*` artifact 保留 90 天（常规证据 30 天，最终候选验收证据 90 天）。
 - 验证（Windows，2026-10-01）：完整 acceptance 6 场景全过（checks/demo/benchmark/consumer/package/unpack），`passed:true`（证据 `acceptance-win32-2026-10-01T05-15-27-252Z/evidence.json`）；候选包 `artifacts/candidate/moonportcheck-0.2.0-dev-win32-9149176.zip` 生成并解包运行成功。
 - **远端验证待核验**：M16 代码已以 `2a0f1bc` 提交，推送并核对该 SHA 的双平台 CI（含候选包解包与 `candidate-*` artifact）后置 complete，并整理最终账本（基线到候选版功能/代码量/工具链/提交 SHA/Actions URL/独立审查结论/剩余限制）；合并到 main 需用户另行单独授权。
+
+### 2026-10-01：M16 完成——v0.2 候选包与完整验收（远端 CI 已核验）
+
+- M16 交付「v0.2 候选包、文档及完整验收」，实现同上一目。新增 `scripts/package.mjs`/`scripts/unpack.mjs`/`scripts/zip-util.mjs`，acceptance 增至 6 场景，ci.yml 以 90 天保留上传 `candidate-*` artifact。
+- 验证（Windows，2026-10-01）：完整 acceptance 6 场景全过且 `passed:true`；候选包逐字节确定（连续构建 sha256 恒为 `e71e149e…`、657477 B）。**远端验收已完成**：M16 代码以 `2a0f1bc` 提交、账本文档以 `bca43fb` 提交并推送至 `codex/october-v0.2`（Draft PR #1）；公开 CI [36818993646](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818993646) 的 windows-latest 与 ubuntu-24.04 两个 job 均 success（exact-SHA bca43fb），run artifact 可见 `candidate-Windows`（100668 B）与 `candidate-Linux`（100640 B）候选包（保留 90 天）、`reports-*` 与 `acceptance-*`（保留 30 天）。M16 由此记为 `complete`。
+
+---
+
+## 最终账本：v0.2（M01–M16）完整验收总结（2026-10-01）
+
+- **范围**：本执行账本覆盖 M01–M16 全部已批准计划里程碑；本地实现与验证一律优先，提交/推送/双平台 CI 核验基于用户 2026-10-01 的全局提交授权直接执行；合并到 main 等待用户单独授权。
+- **基线到候选版新增功能（摘要）**：规则查询与 `explain`（M02–M03）→ 详细报告 schema 2（M04）→ 配置化排除（M06，M05 试点检查自动通过在先）→ 快照模型/命令/差异核心/`diff`（M07–M10）→ 基线模型与分类核心 + `baseline create`/`scan --baseline --fail-on`（M11–M12）→ Markdown 差异表与 SARIF 2.1.0 报告（M13）→ scan/check 的 Markdown 报告 + CI 报告产物/步骤摘要（M14）→ 性质测试/规模验收/Toolchain 锁定与 LOC 硬门禁（M15）→ 发布候选包与双系统解包自验（M16）。
+- **代码量**：`total_code_lines` **6125**（run_check 的 `code-stats --min 3000` 硬门禁通过；moon 核心测试 95/95×2 双目标，node 测试 47 项，parity 81 份逐字节一致，property 60 轮，bench 5 规模案例）。
+- **实际工具链**（`scripts/toolchain.lock.json` 锁定）：moon `0.1.20260920 (914d7da 2026-09-20)`、moonc/编译器 `v0.10.14+7d59c7ec9 (2026-09-18)`、core `0.10.14+7d59c7ec9`、Node `v24.15.0`；官方完整版归档 URL 与内容哈希双固定，绝不回退 latest。
+- **提交 SHA（`codex/october-v0.2`）**：M01–M05 代码 SHA 见本账本各里程碑小节（含 `34ab2b4` 基线/路线图记录）；本会话核验的 M06–M16 代码提交 `5c6f674`/`7d4566b`/`fbbd44a`/`ea6ee3d`/`442905a`/`e6bac9f`/`7d76f17`/`c0cad43`/`d1968bb`/`483dfc1`/`2a0f1bc`（各自 `docs:` 账本提交见上方各节）。
+- **Actions run URL（每里程碑双 job success，exact-SHA）**：M13 代码 [36817190756](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36817190756) + 账本 [36817375730](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36817375730)；M14 代码 [36818004906](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818004906) + 账本 [36818143931](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818143931)；M15 代码 [36818509733](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818509733) + 账本 [36818647282](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818647282)；M16 代码/账本 [36818993646](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818993646)（HEAD `bca43fb`）。M06–M12 对应 run URL 记录于各自里程碑小节。
+- **独立审查结论**：每个里程碑均经「本机完整运行 run_check（moon fmt/check/test 双目标 → 重建 dist → node 测试 → parity → format-matrix → property → bench → code-stats 门禁）→ 本机 acceptance 6 场景（checks/demo/benchmark/consumer/package/unpack）→ 推送 → 双平台 CI 全部 job success」。候选包由独立纯 Node 读取器解包、在无编译器/无 MOON_HOME 的受限 PATH 下运行自证自洽；consumer-smoke 以独立 moon.work 本地模块消费库与复制版 CLI 且最终证据中不携带编译器。据此判定 **v0.2 功能与验收标准全部达成（本地双目标 + 双平台 CI）**；最终合并由用户批准后执行并另行核验。
+- **剩余限制（如实记录，不承诺消除）**：仅 ASCII 大小写折叠，不做 Unicode 等价/规范化关联；不检查路径长度上限、文件系统特定规则、权限与目标端状态；manifest 扫描不是原子快照；SARIF 报告仅作可获取报告示例，并未声明 GitHub Code Scanning 接收成功；`0.2.0-dev` 尚未正式发布（未 tag/发行物）。
+- **候选包证据**：`artifacts/candidate/`（CI `candidate-*` artifact 保留 90 天）；本机 `artifacts/benchmark.json`、`artifacts/reports/` 与各 `acceptance-*/evidence.json` 为配套观测证据。
