@@ -43,6 +43,7 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 | M13 | complete | SARIF 2.1.0 与 Markdown 渲染 | 代码 `c0cad43` + 账本 `19f6dae` | [36817190756](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36817190756)：Windows/Linux 均通过（exact-SHA 19f6dae 的两个 job 均为 success） | diff --format markdown、check --report sarif（仅 artifact URI、无虚构源码行）、路径百分号编码 |
 | M14 | complete | 新格式 CLI 与 Actions 摘要 | 代码 `d1968bb` + 账本 `ea5d2d8` | [36818004906](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818004906)：Windows/Linux 均通过（exact-SHA ea5d2d8 的两个 job 均为 success） | scan/check --format markdown 结论一致、format-matrix 门禁、reports-Windows/Linux artifact 与步骤摘要 |
 | M15 | complete | 交叉／性质测试与规模验收 | 代码 `483dfc1` + 账本 `f5d4c48` | [36818509733](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818509733)：Windows/Linux 均通过（exact-SHA f5d4c48 的两个 job 均为 success） | property 60 轮、bench 5 案例（100k/深路径/长前缀/10k 单组）、LOC 6125≥3000 硬门禁 |
+| M16 | in_progress | v0.2 候选包与完整验收 | 代码 `2a0f1bc`（本地已验证，远端 CI 待核验） | — | 候选 ZIP（LICENSE/说明/校验和）、双系统解包运行、90 天候选证据 |
 | M14 | pending | 新格式 CLI 与 Actions 摘要 | — | — | 格式结论一致、报告可获取 |
 | M15 | pending | 交叉／性质测试与规模验收 | — | — | 双目标、深路径、大组、LOC 门禁 |
 | M16 | pending | v0.2 候选包、文档与完整验收 | — | — | 双系统解包、独立消费、精确 SHA CI |
@@ -203,3 +204,10 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - M15 交付「交叉／性质测试和规模验收」，实现同上一目。新增 `scripts/property.mjs`（60 轮确定性随机性质测试）并扩展 `scripts/bench.mjs` 至 5 个规模案例（含 10 万普通/分组冲突、40 层深路径、1500 字符共前缀、10 万次单组重复），run_check（ps1/sh）纳入 property/bench 门禁并将代码量统计改为硬性 `--min 3000`。
 - 验证（Windows，2026-10-01）：完整 run_check 通过（moon 测试 95/95×2、node 测试 47 项、parity **81** 逐字节一致、format-matrix、property 60 轮、bench 5 案例、`total_code_lines=6125` ≥3000 硬门禁）；本机 acceptance `passed:true`（证据 acceptance-win32-2026-10-01T05-08-57-974Z/evidence.json）；`artifacts/benchmark.json` 留存规模观测数据。
 - **远端验收已完成**：基于用户的全局提交授权（2026-10-01），M15 代码以 `483dfc1` 提交、账本文档以 `f5d4c48` 提交并推送至 `codex/october-v0.2`（Draft PR #1，HEAD `f5d4c48`）；公开 CI [36818509733](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36818509733) 的 windows-latest 与 ubuntu-24.04 两个 job 均 success（各自 Acceptance 步骤通过，exact-SHA f5d4c48）。M15 由此记为 `complete`，可进入 M16（v0.2 候选包、文档与完整验收）。
+
+### 2026-10-01：M16 本地实现与验证（远端 CI 待核验）
+
+- M16 交付「v0.2 候选包、文档及完整验收」。新增 `scripts/package.mjs`：纯 Node 生成逐字节确定 ZIP（stored 条目、固定 1980 时间戳、UTF-8 名、手写 CRC32/中央目录，共享 `scripts/zip-util.mjs`），含 `bin/moonportcheck.mjs`、`lib/host.mjs`、`dist/bridge.js`、`package.json`、`LICENSE`、`README.md` 及每文件 `CHECKSUMS.txt`，外层 `SHA256SUMS.txt` 记录每文件与归档哈希；两次连续构建字节相同（本地验证 sha256 均 `e71e149e…`、657477 B）。新增 `scripts/unpack.mjs`：用同一纯 Node 读取器解包并在仅含 Node 目录的 PATH（无 `MOON_HOME`）下运行解出的 CLI 自证自洽（`--version`=0.2.0-dev、敌意清单 CON.txt exit 1 且仅 NAME_RESERVED、干净清单 --format markdown exit 0）。两者接入 acceptance（6 场景）。
+- ci.yml 新增「Retain release-candidate archive」：`candidate-*` artifact 保留 90 天（常规证据 30 天，最终候选验收证据 90 天）。
+- 验证（Windows，2026-10-01）：完整 acceptance 6 场景全过（checks/demo/benchmark/consumer/package/unpack），`passed:true`（证据 `acceptance-win32-2026-10-01T05-15-27-252Z/evidence.json`）；候选包 `artifacts/candidate/moonportcheck-0.2.0-dev-win32-9149176.zip` 生成并解包运行成功。
+- **远端验证待核验**：M16 代码已以 `2a0f1bc` 提交，推送并核对该 SHA 的双平台 CI（含候选包解包与 `candidate-*` artifact）后置 complete，并整理最终账本（基线到候选版功能/代码量/工具链/提交 SHA/Actions URL/独立审查结论/剩余限制）；合并到 main 需用户另行单独授权。

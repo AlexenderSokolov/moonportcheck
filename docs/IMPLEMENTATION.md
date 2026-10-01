@@ -313,3 +313,19 @@ prefix (2000) and a single 10k-copy duplicate group — and records elapsed_ms,
 peak RSS and report bytes to `artifacts/benchmark.json`. Both scripts run in
 `run_check`/`run_check.sh` alongside parity and format-matrix, and the code
 statistics gate is now a hard floor: `node scripts/code-stats.mjs --min 3000`.
+
+## M16: release-candidate package and full acceptance
+
+`scripts/package.mjs` builds a byte-deterministic ZIP (stored entries, fixed
+1980 timestamps, UTF-8 names, hand-written CRC32/central directory via the
+shared `scripts/zip-util.mjs`) containing `bin/moonportcheck.mjs`, `lib/
+host.mjs`, `dist/bridge.js`, `package.json`, `LICENSE`, `README.md` and a
+`CHECKSUMS.txt` of every packaged file; an outer `SHA256SUMS.txt` records both
+the per-file hashes and the archive hash. Repeated builds produce identical
+bytes (local check: two sequential builds → same SHA-256). `scripts/unpack.mjs`
+extracts the newest archive with the same pure-Node reader and runs the
+packaged CLI from the extracted tree under a PATH that contains only Node's
+directory and no `MOON_HOME` (self-contained on the current OS). Both are
+accepted scenes in `acceptance.mjs`, and CI uploads `artifacts/candidate/` as a
+`candidate-*` artifact with 90-day retention (the 30-day retention applies to
+regular evidence; the final candidate evidence is kept 90 days).
