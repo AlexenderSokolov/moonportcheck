@@ -32,6 +32,60 @@ test('protocol errors return usable structured input errors', () => {
   assert.equal(JSON.parse(run_request('{')).exit_code, 2);
 });
 
+test('snapshot mode builds a canonical snapshot and exits by completeness', () => {
+  const complete = run({ mode: 'snapshot', format: 'json', entries: [{ path: 'b', kind: 'file' }, { path: 'a', kind: 'directory' }, { path: 'a/x', kind: 'file' }], scan_issues: [], exclude_patterns: ['*.tmp', 'cache/'] });
+  assert.equal(complete.exit_code, 0);
+  const doc = JSON.parse(complete.output);
+  assert.equal(doc.format, 'moonportcheck-snapshot');
+  assert.equal(doc.version, 1);
+  assert.equal(doc.complete, true);
+  assert.deepEqual(doc.scope, ['*.tmp', 'cache/']);
+  assert.deepEqual(doc.entries.map(e => [e.path, e.kind]), [['a', 'directory'], ['a/x', 'file'], ['b', 'file']]);
+  assert.deepEqual(doc.scan_issues, []);
+  const partial = run({ mode: 'snapshot', format: 'json', entries: [{ path: 'x', kind: 'file' }], scan_issues: [{ code: 'SCAN_IO_ERROR', path: 'closed', message: 'Cannot enumerate directory (EACCES).' }], exclude_patterns: [] });
+  assert.equal(partial.exit_code, 3);
+  assert.equal(JSON.parse(partial.output).complete, false);
+  const badEntry = run({ mode: 'snapshot', format: 'json', entries: [{ path: 'x', kind: 'symlink' }], scan_issues: [] });
+  assert.equal(badEntry.exit_code, 2);
+  const badIssue = run({ mode: 'snapshot', format: 'json', entries: [], scan_issues: [null] });
+  assert.equal(badIssue.exit_code, 2);
+});
+
+test('check imports a snapshot with inherited scope and shrink-only extras', () => {
+  const exported = run({ mode: 'snapshot', format: 'json', entries: [{ path: 'cache/x.bin', kind: 'file' }, { path: 'ok.txt', kind: 'file' }], scan_issues: [], exclude_patterns: ['cache/'] });
+  assert.equal(exported.exit_code, 0);
+  const inherited = run({ mode: 'check', format: 'json', manifest_text: exported.output });
+  assert.equal(inherited.exit_code, 0, inherited.output);
+  const report = JSON.parse(inherited.output);
+  assert.equal(report.source, 'snapshot');
+  assert.deepEqual(report.scope, ['cache/']);
+  assert.equal(report.summary.entries, 1);
+  assert.equal(report.excluded_entries, 1);
+  const narrowed = run({ mode: 'check', format: 'json', manifest_text: exported.output, exclude_patterns: ['ok.txt'] });
+  assert.equal(narrowed.exit_code, 0, narrowed.output);
+  const narrowedReport = JSON.parse(narrowed.output);
+  assert.deepEqual(narrowedReport.scope, ['cache/', 'ok.txt']);
+  assert.equal(narrowedReport.summary.entries, 0);
+});
+
+test('check of a snapshot reports findings and rejects bad profile or malformed docs', () => {
+  const text = run({ mode: 'snapshot', format: 'json', entries: [{ path: 'CON.txt', kind: 'file' }, { path: 'ok.bin', kind: 'file' }], scan_issues: [], exclude_patterns: [] }).output;
+  const result = run({ mode: 'check', format: 'json', manifest_text: text });
+  assert.equal(result.exit_code, 1, result.output);
+  const report = JSON.parse(result.output);
+  assert.equal(report.source, 'snapshot');
+  assert.equal(report.summary.entries, 2);
+  assert.ok(report.diagnostics.some(d => d.code === 'NAME_RESERVED'));
+  const badProfile = run({ mode: 'check', format: 'json', manifest_text: '{"format":"moonportcheck-snapshot","version":1,"profile":"other","complete":true,"scope":[],"entries":[{"path":"x","kind":"file"}],"scan_issues":[]}' });
+  assert.equal(badProfile.exit_code, 2);
+  assert.match(badProfile.output, /INPUT_SCHEMA/);
+  const malformed = run({ mode: 'check', format: 'json', manifest_text: '{"format":"moonportcheck-snapshot","version":1,"profile":"portable-windows-v1","complete":true,"scope":[],"entries":[{"path":"b","kind":"file"},{"path":"a","kind":"file"}],"scan_issues":[]}' });
+  assert.equal(malformed.exit_code, 2);
+  const plain = run({ mode: 'check', format: 'json', manifest_text: '[{"path":"x","kind":"file"}]' });
+  assert.equal(plain.exit_code, 0);
+  assert.equal(JSON.parse(plain.output).source, 'manifest');
+});
+
 test('scope mode validates config plus CLI exclusions and returns a merged scope', () => {
   const ok = run({ mode: 'scope', format: 'json', config_text: '{"schema_version":1,"exclude":["cache/","*.tmp"]}', cli_exclude: ['*.tmp', 'build'] });
   assert.equal(ok.exit_code, 0);

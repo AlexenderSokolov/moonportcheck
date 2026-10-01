@@ -2,7 +2,7 @@
 
 用 MoonBit 编写的跨平台路径预检库与离线 CLI。在把代码、数据或实验成果交给 Windows 用户前，检查文件名称、隐含目录及集合冲突。
 
-**当前源码版本：`0.2.0-dev`，尚未正式发布。** 检查配置固定为 `portable-windows-v1`。[公开仓库](https://github.com/AlexenderSokolov/moonportcheck) 持续开发，已加入规则查询、M04 详细报告、M06 配置化排除与 M07 快照模型。差异、基线和多格式报告等能力仍按 [v0.2 计划](docs/V02_PLAN.md) 分步实施；实际里程碑与对应 CI 证据见 [执行账本](docs/V02_PROGRESS.md)。
+**当前源码版本：`0.2.0-dev`，尚未正式发布。** 检查配置固定为 `portable-windows-v1`。[公开仓库](https://github.com/AlexenderSokolov/moonportcheck) 持续开发，已加入规则查询、M04 详细报告、M06 配置化排除、M07 快照模型与 M08 快照命令/快照检查。差异、基线和多格式报告等能力仍按 [v0.2 计划](docs/V02_PLAN.md) 分步实施；实际里程碑与对应 CI 证据见 [执行账本](docs/V02_PROGRESS.md)。
 
 ```text
 results/A.csv + results/a.csv  → PATH_CASE_COLLISION
@@ -40,12 +40,15 @@ node bin/moonportcheck.mjs check examples/windows-problems.json --format text
 
 ```text
 moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--format text|json]
+moonportcheck snapshot ROOT [--config FILE] [--exclude PATTERN]...
 moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json]
 moonportcheck --help
 moonportcheck --version
 ```
 
 源码环境用 `node bin/moonportcheck.mjs` 代替 `moonportcheck`；打包后的 bin 入口同名。
+
+`snapshot ROOT` 把真实目录导出为固定 JSON 快照文档（`{"format":"moonportcheck-snapshot","version":1,...}`，不接受 `--format`）：完整导出退出 `0`、扫描不完整退出 `3`。`check MANIFEST` 同时接受原数组清单与该快照文档：检查快照时继承其排除范围，`--config`/`--exclude` 的额外排除只能缩小范围，不完整快照始终保持不完整（退出 `3`），报告 `source` 为 `"snapshot"`。
 
 ```powershell
 # 实际目录：包含隐藏项，输出相对于根目录的路径。

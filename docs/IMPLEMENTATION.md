@@ -137,3 +137,30 @@ continues to accept the original array manifests; snapshot-aware check and the
 does not replace `parse_manifest`). `cmd/parity` gains two snapshot fixtures
 (build-render and parse-round-trip render) so both execution backends stay
 byte-identical.
+
+## M08 additions (v0.2, snapshot command and snapshot-aware check)
+
+`snapshot.mbt` gains `audit_snapshot(Snapshot, Array[String]) ->
+Result[DetailedReport, InputError]`: it checks a snapshot for the active profile,
+inheriting the snapshot's canonical `scope` and applying extra exclusions on top
+(extra patterns can only shrink the checked set). A foreign `profile` is
+rejected with `INPUT_SCHEMA`. The snapshot's stored `scan_issues` are carried
+unchanged, so an incomplete snapshot always produces an incomplete report;
+`source` is `"snapshot"`.
+
+`src/bridge` adds a `snapshot` mode
+(`{mode:"snapshot", format, entries, scan_issues, exclude_patterns}`):
+`build_snapshot(entries, issues, effective_scope)` serialized via
+`render_snapshot_json`, exit 0 when `complete` and 3 when not. The `check` mode
+now classifies its input by the parsed JSON value: an array is the original
+manifest path, an object is parsed as a snapshot and audited via
+`audit_snapshot` (with `exclude_patterns` as the shrink-only extras), anything
+else is an `INPUT_SCHEMA` error. The shared `scan_issues` field is parsed by one
+helper used by both `scan` and `snapshot` modes. `lib/host.mjs`
+`parseArguments` accepts `snapshot` (target required; `--format` rejected
+because the document is always JSON; `--config`/`--exclude` allowed), and the
+bin wires `moonportcheck snapshot ROOT` to scan + `snapshot` mode, writing the
+snapshot document to stdout.
+
+`cmd/parity` gains one `audit_snapshot` fixture so `render_detailed_json` of a
+snapshot-audited report is byte-identical across js/wasm-gc (68 reports total).

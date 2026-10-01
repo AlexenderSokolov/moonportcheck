@@ -176,4 +176,26 @@ fn main {
       },
     ),
   )
+  let audit_target = match
+    @moonportcheck.build_snapshot(
+      [
+        { path: "CON.txt", kind: @moonportcheck.File, },
+        { path: "cache", kind: @moonportcheck.Directory, },
+        { path: "cache/x.bin", kind: @moonportcheck.File, },
+        { path: "results.tmp", kind: @moonportcheck.File, },
+      ],
+      [],
+      ["*.tmp", "cache/"],
+    ) {
+    Ok(snapshot) => snapshot
+    Err(_) => abort("Invalid parity snapshot")
+  }
+  println(
+    @moonportcheck.render_detailed_json(
+      match @moonportcheck.audit_snapshot(audit_target, ["results.tmp"]) {
+        Ok(report) => report
+        Err(_) => abort("Snapshot audit failed")
+      },
+    ),
+  )
 }

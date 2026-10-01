@@ -224,6 +224,58 @@ pub fn render_snapshot_json(snapshot : Snapshot) -> String {
 }
 
 ///|
+/// Audit a snapshot for the current profile. The snapshot's own effective
+/// scope is inherited; any extra exclusions can only shrink the checked set.
+/// The snapshot's stored scan issues remain: an incomplete snapshot always
+/// stays incomplete. The source is recorded as "snapshot".
+pub fn audit_snapshot(
+  snapshot : Snapshot,
+  extra_scope : Array[String],
+) -> Result[DetailedReport, InputError] {
+  if snapshot.profile != "portable-windows-v1" {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "Snapshot profile does not match the active profile.",
+    })
+  }
+  let combined = snapshot.scope.copy()
+  for pattern in extra_scope {
+    combined.push(pattern)
+  }
+  let scope = match parse_scope(combined) {
+    Err(error) => return Err(error)
+    Ok(scope) => scope
+  }
+  let base = audit_with_exclusions(
+    snapshot.entries,
+    default_audit_options(),
+    scope,
+  )
+  let issues = snapshot.scan_issues.copy()
+  sort_scan_issues(issues)
+  {
+    schema_version: base.schema_version,
+    profile: base.profile,
+    source: "snapshot",
+    complete: base.complete && issues.is_empty(),
+    summary: {
+      entries: base.summary.entries,
+      files: base.summary.files,
+      directories: base.summary.directories,
+      diagnostic_groups: base.diagnostics.length(),
+      scan_issues: issues.length(),
+    },
+    diagnostics: base.diagnostics,
+    limitations: base.limitations,
+    scan_issues: issues,
+    scope: base.scope,
+    excluded_entries: base.excluded_entries,
+    pruned_directories: base.pruned_directories,
+  }
+  |> Ok
+}
+
+///|
 fn collect_snapshot_strings(
   items : Array[Json],
   field : String,

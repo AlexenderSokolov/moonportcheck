@@ -146,21 +146,53 @@ pub fn run_request(request : String) -> String {
           format, 2, "INPUT_SCHEMA", "Missing manifest text.",
         )
       }
-      match @moonportcheck.parse_manifest(text) {
-        Err(e) => error_response(format, 2, e.code, e.message)
-        Ok(entries) =>
-          match scope_of(fields) {
-            Err(error) => error_response(format, 2, error.code, error.message)
-            Ok(scope) =>
-              report_response(
-                format,
-                @moonportcheck.audit_with_exclusions(
-                  entries,
-                  @moonportcheck.default_audit_options(),
-                  scope,
-                ),
-              )
+      // check accepts either an original array manifest or a snapshot
+      // document; classify by the parsed top-level JSON value.
+      let value = @json.parse(text) catch {
+        _ =>
+          return error_response(
+            format, 2, "INPUT_JSON", "Invalid JSON in the check input.",
+          )
+      }
+      match value {
+        Array(_) =>
+          match @moonportcheck.parse_manifest(text) {
+            Err(e) => error_response(format, 2, e.code, e.message)
+            Ok(entries) =>
+              match scope_of(fields) {
+                Err(error) =>
+                  error_response(format, 2, error.code, error.message)
+                Ok(scope) =>
+                  report_response(
+                    format,
+                    @moonportcheck.audit_with_exclusions(
+                      entries,
+                      @moonportcheck.default_audit_options(),
+                      scope,
+                    ),
+                  )
+              }
           }
+        Object(_) =>
+          match @moonportcheck.parse_snapshot(text) {
+            Err(e) => error_response(format, 2, e.code, e.message)
+            Ok(snapshot) => {
+              let extra = match scope_of(fields) {
+                Err(error) =>
+                  return error_response(format, 2, error.code, error.message)
+                Ok(scope) => @moonportcheck.effective_scope_patterns(scope)
+              }
+              match @moonportcheck.audit_snapshot(snapshot, extra) {
+                Err(error) =>
+                  error_response(format, 2, error.code, error.message)
+                Ok(report) => report_response(format, report)
+              }
+            }
+          }
+        _ =>
+          error_response(
+            format, 2, "INPUT_SCHEMA", "The check input must be a manifest array or a snapshot document.",
+          )
       }
     }
     Some(String("scan")) => {
@@ -174,34 +206,10 @@ pub fn run_request(request : String) -> String {
         Err(e) => return error_response(format, 2, e.code, e.message)
         Ok(entries) => entries
       }
-      guard fields.get("scan_issues") is Some(Array(raw_issues)) else {
-        return error_response(
-          format, 2, "INPUT_SCHEMA", "Missing scan issues array.",
-        )
-      }
-      let issues : Array[@moonportcheck.ScanIssue] = []
-      for item in raw_issues {
-        guard item is Object(issue) else {
-          return error_response(
-            format, 2, "INPUT_SCHEMA", "Scan issue must be an object.",
-          )
-        }
-        guard issue.get("code") is Some(String(code)) else {
-          return error_response(
-            format, 2, "INPUT_SCHEMA", "Scan issue requires a code.",
-          )
-        }
-        guard issue.get("path") is Some(String(path)) else {
-          return error_response(
-            format, 2, "INPUT_SCHEMA", "Scan issue requires a path.",
-          )
-        }
-        guard issue.get("message") is Some(String(message)) else {
-          return error_response(
-            format, 2, "INPUT_SCHEMA", "Scan issue requires a message.",
-          )
-        }
-        issues.push({ code, path, message, })
+      let issues = match parse_scan_issues(fields) {
+        Err(error) =>
+          return error_response(format, 2, error.code, error.message)
+        Ok(issues) => issues
       }
       let base = match scope_of(fields) {
         Err(error) =>
@@ -216,8 +224,83 @@ pub fn run_request(request : String) -> String {
       let report = @moonportcheck.with_scan_issues(base, issues)
       report_response(format, report)
     }
+    Some(String("snapshot")) => {
+      // Build and serialize a canonical snapshot from a scanned tree. The
+      // document is the only output; completeness drives the exit code.
+      guard fields.get("entries") is Some(raw_entries) else {
+        return error_response(
+          format, 2, "INPUT_SCHEMA", "Missing scan entries.",
+        )
+      }
+      let entries = match
+        @moonportcheck.parse_manifest(raw_entries.stringify()) {
+        Err(e) => return error_response(format, 2, e.code, e.message)
+        Ok(entries) => entries
+      }
+      let issues = match parse_scan_issues(fields) {
+        Err(error) =>
+          return error_response(format, 2, error.code, error.message)
+        Ok(issues) => issues
+      }
+      let scope = match scope_of(fields) {
+        Err(error) =>
+          return error_response(format, 2, error.code, error.message)
+        Ok(scope) => @moonportcheck.effective_scope_patterns(scope)
+      }
+      match @moonportcheck.build_snapshot(entries, issues, scope) {
+        Err(error) => error_response(format, 2, error.code, error.message)
+        Ok(snapshot) =>
+          response(
+            if snapshot.complete {
+              0
+            } else {
+              3
+            },
+            @moonportcheck.render_snapshot_json(snapshot),
+          )
+      }
+    }
     _ => error_response(format, 2, "ARGUMENT_ERROR", "Unknown request mode.")
   }
+}
+
+///|
+/// Parse the shared scan_issues request field into ScanIssue records.
+fn parse_scan_issues(
+  fields : Map[String, Json],
+) -> Result[Array[@moonportcheck.ScanIssue], @moonportcheck.InputError] {
+  guard fields.get("scan_issues") is Some(Array(items)) else {
+    return Err({ code: "INPUT_SCHEMA", message: "Missing scan issues array.", })
+  }
+  let issues : Array[@moonportcheck.ScanIssue] = []
+  for item in items {
+    guard item is Object(issue) else {
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "Scan issue must be an object.",
+      })
+    }
+    guard issue.get("code") is Some(String(code)) else {
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "Scan issue requires a code.",
+      })
+    }
+    guard issue.get("path") is Some(String(path)) else {
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "Scan issue requires a path.",
+      })
+    }
+    guard issue.get("message") is Some(String(message)) else {
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "Scan issue requires a message.",
+      })
+    }
+    issues.push({ code, path, message, })
+  }
+  Ok(issues)
 }
 
 ///|

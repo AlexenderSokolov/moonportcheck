@@ -6,13 +6,19 @@ const help = `MoonPortCheck ${metadata.version} — portable-windows-v1
 
 Usage:
   moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--format text|json]
+  moonportcheck snapshot ROOT [--config FILE] [--exclude PATTERN]...
   moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json]
   moonportcheck rules [--format text|json]
   moonportcheck explain CODE [--format text|json]
   moonportcheck --help
   moonportcheck --version
 
-MANIFEST is a UTF-8 JSON array of {"path":"relative/name","kind":"file"|"directory"}.
+MANIFEST is a UTF-8 JSON array of {"path":"relative/name","kind":"file"|"directory"}
+or a snapshot document written by this command. check on a snapshot inherits its
+scope; extra exclusions can only shrink it and an incomplete snapshot stays
+incomplete.
+snapshot writes the fixed-format snapshot JSON document to stdout (no --format);
+exit 0 when the scan was complete and 3 when it was not.
 scan includes hidden entries and never follows symbolic links or junctions.
 --config reads a versioned JSON configuration ({"schema_version":1,"exclude":[...]});
 its exclusions and every --exclude are combined. No .gitignore is read implicitly.
@@ -53,14 +59,17 @@ async function main() {
           process.exitCode = scope.error.exit_code;
           return;
         }
-        if (options.mode === 'scan') {
+        if (options.mode === 'scan' || options.mode === 'snapshot') {
           // Node adapts the filesystem; every pruning decision comes from the
           // MoonBit matcher so there is no second glob implementation here.
           const prune = scope.patterns.length === 0 ? null : (relative, kind) => {
             const response = JSON.parse(run_request(JSON.stringify({ mode: 'excluded', format: 'json', patterns: scope.patterns, path: relative, kind })));
             return response.exit_code === 0 && response.output === 'true';
           };
-          request = { mode: 'scan', format: options.format, ...await scan(options.target, { excludeMatch: prune }), exclude_patterns: scope.patterns };
+          const scanned = await scan(options.target, { excludeMatch: prune });
+          request = options.mode === 'snapshot'
+            ? { mode: 'snapshot', format: 'json', ...scanned, exclude_patterns: scope.patterns }
+            : { mode: 'scan', format: options.format, ...scanned, exclude_patterns: scope.patterns };
         } else {
           request = { mode: 'check', format: options.format, manifest_text: await readManifest(options.target), exclude_patterns: scope.patterns };
         }

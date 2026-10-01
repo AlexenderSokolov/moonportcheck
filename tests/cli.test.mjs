@@ -283,3 +283,63 @@ test('CLI scan and check agree under the same exclusions', async () => {
   assert.deepEqual(scanReport.pruned_directories, checked.pruned_directories);
   assert.equal(checked.excluded_entries, 2);
 });
+
+test('CLI snapshot exports a snapshot and check re-imports it with shrink-only extras', async () => {
+  const root = await fixture();
+  await fs.mkdir(path.join(root, 'cache'));
+  await fs.writeFile(path.join(root, 'cache', 'x.bin'), '');
+  await fs.writeFile(path.join(root, 'a.tmp'), '');
+  await fs.mkdir(path.join(root, 'src'));
+  await fs.writeFile(path.join(root, 'src', 'ok.txt'), '');
+  // snapshot always writes the fixed document; --format is rejected.
+  const rejected = invoke('snapshot', root, '--format', 'json');
+  assert.equal(rejected.status, 2);
+  assert.match(rejected.stdout, /ARGUMENT_ERROR/);
+  const exported = invoke('snapshot', root, '--exclude', '*.tmp', '--exclude', 'cache/');
+  assert.equal(exported.status, 0, exported.stdout);
+  const doc = JSON.parse(exported.stdout);
+  assert.equal(doc.format, 'moonportcheck-snapshot');
+  assert.equal(doc.version, 1);
+  assert.equal(doc.complete, true);
+  assert.deepEqual(doc.scope, ['*.tmp', 'cache/']);
+  assert.deepEqual(doc.entries.map(e => e.path), ['a.tmp', 'cache', 'src', 'src/ok.txt']);
+  const snapshotFile = path.join(root, 'snapshot.json');
+  await fs.writeFile(snapshotFile, exported.stdout);
+  const checked = JSON.parse(invoke('check', snapshotFile, '--format', 'json').stdout);
+  assert.equal(checked.source, 'snapshot');
+  assert.deepEqual(checked.scope, ['*.tmp', 'cache/']);
+  assert.equal(checked.summary.entries, 2);
+  assert.equal(checked.excluded_entries, 2);
+  assert.deepEqual(checked.pruned_directories, ['cache']);
+  const narrowed = JSON.parse(invoke('check', snapshotFile, '--exclude', 'src/', '--format', 'json').stdout);
+  assert.deepEqual(narrowed.scope, ['*.tmp', 'cache/', 'src/']);
+  assert.equal(narrowed.summary.entries, 0);
+  assert.deepEqual(narrowed.pruned_directories, ['cache', 'src']);
+});
+
+test('CLI check of an incomplete snapshot stays incomplete and exits 3', async () => {
+  const root = await fixture();
+  const doc = {
+    format: 'moonportcheck-snapshot',
+    version: 1,
+    profile: 'portable-windows-v1',
+    complete: false,
+    scope: [],
+    entries: [{ path: 'x.txt', kind: 'file' }],
+    scan_issues: [{ code: 'SCAN_LINK_SKIPPED', path: 'x.txt', message: 'A symbolic link was not followed.' }],
+  };
+  const file = path.join(root, 'snap.json');
+  await fs.writeFile(file, JSON.stringify(doc));
+  const result = invoke('check', file, '--format', 'json');
+  assert.equal(result.status, 3, result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.complete, false);
+  assert.equal(report.source, 'snapshot');
+  assert.equal(report.scan_issues.length, 1);
+  const mismatched = { ...doc, profile: 'other', complete: true, scan_issues: [] };
+  const badFile = path.join(root, 'bad.json');
+  await fs.writeFile(badFile, JSON.stringify(mismatched));
+  const bad = invoke('check', badFile, '--format', 'json');
+  assert.equal(bad.status, 2);
+  assert.match(bad.stdout, /INPUT_SCHEMA/);
+});

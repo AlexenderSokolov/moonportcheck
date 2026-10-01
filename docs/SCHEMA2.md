@@ -1,6 +1,6 @@
 # Schema 2：详细报告与消费迁移
 
-本文对应 `0.2.0-dev` 的 M04/M06/M07 详细诊断接口。源码处于开发阶段，尚未正式发布。M04 增加来源证据与独立扫描问题；M06 增加配置化排除与目录剪枝，并接入 `scope`、`excluded_entries`、`pruned_directories` 字段；M07 增加快照模型、解析与序列化（独立文档格式见下文「快照文档」）。差异、基线、SARIF 和 Markdown 报告属于后续里程碑，不能由本文推断它们已经可用。
+本文对应 `0.2.0-dev` 的 M04/M06/M07/M08 详细诊断接口。源码处于开发阶段，尚未正式发布。M04 增加来源证据与独立扫描问题；M06 增加配置化排除与目录剪枝，并接入 `scope`、`excluded_entries`、`pruned_directories` 字段；M07 增加快照模型、解析与序列化（独立文档格式见下文「快照文档」）；M08 增加 `snapshot` 命令并使 `check` 接受快照。差异、基线、SARIF 和 Markdown 报告属于后续里程碑，不能由本文推断它们已经可用。
 
 ## 选择需要的接口
 
@@ -135,6 +135,17 @@ schema 2 保留 `profile`、`source`、`complete`、`summary`、`diagnostics` �
 - `parse_snapshot(text)` 只接受规范文档：`format`/`version` 必须匹配、仅允许已知字段、`entries` 必须严格递增且唯一、`scope` 必须是字符串数组、`scan_issues` 必须结构正确。损坏或非规范输入一律拒绝（`INPUT_SCHEMA` / `PATTERN_INVALID`）。
 - `render_snapshot_json(snapshot)` 以固定字段顺序确定性输出；`render_snapshot_json(parse_snapshot(render_snapshot_json(s)))` 与输入逐字节一致（往返一致、排序稳定）。
 - 快照命令与 `check` 快照支持在 M08 交付；本里程碑只提供模型、解析与序列化。
+
+## 快照命令与快照检查（M08）
+
+`moonportcheck snapshot ROOT [--config FILE] [--exclude PATTERN]...` 扫描真实目录并把 `build_snapshot` 的结果以快照文档形式写到 stdout（固定 JSON，不接受 `--format`）：完整快照导出退出 `0`，扫描不完整退出 `3`，输入/模式错误退出 `2`。快照保存被枚举到的全部条目（含被排除文件；被整棵剪枝目录只保存目录本身）；检查快照时才应用排除。
+
+`moonportcheck check MANIFEST` 现在同时接受原数组清单与快照文档，按顶层 JSON 值分类：数组走原 `parse_manifest` 路径；对象解析为快照后经 `audit_snapshot` 检查。检查快照时：
+
+- 报告 `source` 为 `"snapshot"`，`scope` 继承快照范围；`--config`/`--exclude` 的额外排除只能**缩小**被检查集合（并集去重后按 ordinal 排序）。
+- 快照存储的 `scan_issues` 原样带入，因此**不完整快照始终不完整**（`complete=false`，退出 `3`）；`summary.scan_issues` 与 `scan_issues` 据此取值。
+- `complete`/`source` 之外的字段（`schema_version`、`profile`、`summary`、`diagnostics`、`excluded_entries`、`pruned_directories`）语义与其他来源一致。
+- `profile` 与当前激活配置不一致的快照被拒绝（`INPUT_SCHEMA`，退出 `2`）。
 
 ## 机器消费者迁移步骤1. 对审计／错误对象先验证 `schema_version === 2`，再区分 `error` 与审计报告；规则查询仍按数组读取。
 2. 将原来在 `diagnostics` 中筛选 `SCAN_*` 的代码移到外层 `scan_issues`。统计路径问题时使用 `summary.diagnostic_groups`，统计扫描问题时使用 `summary.scan_issues`。

@@ -9,6 +9,7 @@
 - M05 增加纯 MoonBit 排除模式匹配器 `parse_pattern` / `pattern_matches`，语义见 [PATTERNS.md](docs/PATTERNS.md)。
 - M06 增加 `parse_scope` / `entry_excluded` / `effective_scope_patterns` / `audit_with_exclusions`，以及 `check`/`scan` 的 `--exclude` 与版本化 `--config`；报告 `scope`、`excluded_entries`、`pruned_directories` 现在反映实际排除范围，不隐式读取 `.gitignore`。
 - M07 增加快照模型 `Snapshot` 与 `build_snapshot` / `parse_snapshot` / `render_snapshot_json`：持久化唯一排序条目、范围、完整性与扫描问题（不含内容/时间戳/绝对路径），往返一致、排序稳定、损坏或非规范输入拒绝。`check` 快照支持与 `snapshot` 命令在 M08 提供。
+- M08 增加 `snapshot ROOT` 命令（导出固定 JSON 快照文档，完整退出 0、不完整退出 3）与 `audit_snapshot`：`check` 现在接受原数组清单或快照文档，检查快照时继承其范围、额外排除只能缩小、不完整快照始终不完整，报告 `source` 记为 `"snapshot"`；profile 不匹配的快照拒绝。
 - 快照、差异、基线和新的报告格式尚待对应里程碑实现。
 
 各里程碑的完成情况、提交与公开 CI 以 [V02_PROGRESS.md](docs/V02_PROGRESS.md) 为准；开发版本号不表示正式包发布或赛事验收。

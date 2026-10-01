@@ -13,6 +13,17 @@ fn snapshot_of(
 }
 
 ///|
+fn audit_snapshot_of(
+  snapshot : @moonportcheck.Snapshot,
+  extra : Array[String],
+) -> @moonportcheck.DetailedReport raise {
+  match @moonportcheck.audit_snapshot(snapshot, extra) {
+    Ok(report) => report
+    Err(error) => fail("Snapshot audit rejected: " + error.message)
+  }
+}
+
+///|
 fn snap_file(path : String) -> @moonportcheck.PathEntry {
   { path, kind: @moonportcheck.File, }
 }
@@ -160,4 +171,47 @@ test "parse_snapshot rejects corrupted and non-canonical input" {
     }
     Err(error) => fail("Valid snapshot rejected: " + error.message)
   }
+}
+
+///|
+test "audit_snapshot_inherits_scope_and_shrinks" {
+  let snapshot = snapshot_of(
+    [snap_file("cache/x.bin"), snap_file("ok.txt")],
+    [],
+    ["cache/"],
+  )
+  let report = audit_snapshot_of(snapshot, ["ok.txt"])
+  assert_true(report.complete)
+  assert_eq(report.source, "snapshot")
+  assert_eq(report.scope.join(","), "cache/,ok.txt")
+  assert_eq(report.summary.entries, 0)
+  assert_eq(report.summary.files, 0)
+  let inherited = audit_snapshot_of(snapshot, [])
+  assert_eq(inherited.scope.join(","), "cache/")
+  assert_eq(inherited.summary.entries, 1)
+  assert_eq(inherited.excluded_entries, 1)
+}
+
+///|
+test "audit_snapshot_rejects_foreign_profile_and_keeps_issues" {
+  let foreign = match
+    @moonportcheck.parse_snapshot(
+      "{\"format\":\"moonportcheck-snapshot\",\"version\":1,\"profile\":\"other\",\"complete\":true,\"scope\":[],\"entries\":[],\"scan_issues\":[]}",
+    ) {
+    Ok(snapshot) => snapshot
+    Err(error) => fail("Foreign snapshot rejected: " + error.message)
+  }
+  match @moonportcheck.audit_snapshot(foreign, []) {
+    Err(error) => assert_eq(error.code, "INPUT_SCHEMA")
+    Ok(_) => fail("Foreign profile accepted")
+  }
+  let partial = snapshot_of(
+    [snap_file("x.txt")],
+    [issue("SCAN_LINK_SKIPPED", "x.txt", "Not followed.")],
+    [],
+  )
+  let report = audit_snapshot_of(partial, [])
+  assert_false(report.complete)
+  assert_eq(report.summary.scan_issues, 1)
+  assert_eq(report.scan_issues.length(), 1)
 }

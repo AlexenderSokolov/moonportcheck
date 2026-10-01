@@ -8,6 +8,8 @@ import {
 // Values
 pub fn audit(Array[PathEntry]) -> Report
 
+pub fn audit_snapshot(Snapshot, Array[String]) -> Result[DetailedReport, InputError]
+
 pub fn audit_with_exclusions(Array[PathEntry], AuditOptions, ExclusionScope) -> DetailedReport
 
 pub fn audit_with_options(Array[PathEntry], AuditOptions) -> DetailedReport
