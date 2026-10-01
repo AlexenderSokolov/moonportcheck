@@ -273,3 +273,26 @@ bridge's `report_output` routes to the SARIF renderer for check (manifest,
 snapshot and scan inputs alike) while `scan --baseline` keeps its text/json
 `baseline_response` gating. The parity fixture (81 lines) asserts the markdown
 and SARIF outputs are byte-identical between the js and wasm-gc targets.
+
+## M14: Markdown reports for scan/check and CI report artifacts
+
+`render_detailed_markdown(DetailedReport)` in `detailed.mbt` renders a `#
+MoonPortCheck report` document: a status line (`INCOMPLETE`/`PASS (covered
+rules only)`/`FINDINGS`), scope and exclusion summary, a `## Findings` table
+(Code/Paths/Occurrences/Message), a `## Scan issues` table and `## Coverage
+limits` — the same conclusions as text/JSON/SARIF. Paths, codes and messages
+pass through `md_cell` so a hostile name cannot break a table cell. The bridge
+routes `format="markdown"` through `render_detailed_markdown` for check,
+manifest/scan (`report_response` and `baseline_response` alike);
+`lib/host.mjs` now accepts `--format markdown` for `check`/`scan`/`diff`
+(never `rules`/`explain`, and `--report sarif` plus `--format markdown` is
+rejected as conflicting). `scripts/format-matrix.mjs` is a new gate in
+`run_check`/`run_check.sh`: for the same input every format must exit with the
+same code, and the SARIF result rule ids equal the JSON diagnostic codes.
+
+The workflow gains a report sample (`scripts/ci-report.mjs`): it scans a small
+cross-platform fixture, writes `artifacts/reports/{scan.json,scan.txt,scan.md,
+check.sarif,snapshot.json,diff.md,summary.md}`, uploads them as the `reports-*
+` artifact, and appends a Markdown summary to `$GITHUB_STEP_SUMMARY`. This is a
+report-obtainability sample; it does not claim that GitHub Code Scanning
+accepted the SARIF file.
