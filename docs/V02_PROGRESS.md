@@ -33,7 +33,7 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 | M03 | complete | 规则目录与 `rules/explain` | `0880a08de9db501e756a2e1fe32b52b420938b96` | [36215499117](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36215499117)：两系统通过 | 27项核心测试/目标、全规则查询、未知编号失败、25份跨目标比对及旧消费者 |
 | M04 | complete | 详细诊断、来源证据、schema 2 | `10a65668d83e431bbd9c3eff14cb84276612371f` | [36216177182](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36216177182)：两系统通过 | 38项核心/目标，49份跨目标输出，旧消费者及十万规模通过 |
 | M05 | complete | MoonBit 路径匹配器 | `7c2adb21c5a0e0077f1287a06e7d466bd7f17ed2` | [36216679371](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36216679371)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | 核心测试 JS/wasm-gc 各 51/51，Windows 全套检查通过，61 份新旧输出逐字节一致（含 12 组匹配），独立递归解释器核对，深路径/长前缀/重复星号通过 |
-| M06 | in_progress | 配置、排除与扫描剪枝 | — | 远端 CI 待授权后核验 | scan/check 范围一致、排除计数可信；本地完成情况见追加记录 |
+| M06 | complete | 配置、排除与扫描剪枝 | `5c6f674d61188715f7b024b803021dd10315df43` | [36804146762](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36804146762)：Windows/Linux 均通过（2026-10-01 联网核对该 SHA 的两个 job 均为 success） | scan/check 范围一致、排除计数可信；双平台自动验收通过，获用户授权后 commit+push 并核验 CI |
 | M07 | pending | Snapshot 模型与序列化 | — | — | 往返、稳定排序、损坏输入 |
 | M08 | pending | snapshot CLI 与快照检查 | — | — | 真实导出、完整性继承 |
 | M09 | pending | SnapshotDiff 核心与报告 | — | — | 新增、移除、类型、大小写变化 |
@@ -94,11 +94,11 @@ CI 失败先修复，再增加功能；必要修复另记提交，因此实际�
 - M05 有效RED后，JS/wasm-gc 各51/51核心测试通过；Windows整套run_check通过，61份新旧输出逐字节一致（含12组匹配输出）。独立只读审查未发现缺陷。5,000段深路径、512字符共同前缀、128个重复星号片段通过。记录 `artifacts/m05-check-windows.log`。
 - 模式 AST 字段显式私有；同时将 AuditOptions 的 sample_limit 标为私有，落实 M04 已约定的不透明接口，旧v1接口未动。
 
-### 2026-10-01：M06 本地实现与验证（远端 CI 待授权核验）
+### 2026-10-01：M06 完成——配置化排除与扫描剪枝（远端 CI 已核验）
 
 - M06 交付「配置化排除与扫描剪枝」。纯 MoonBit 新增 `parse_scope` / `entry_excluded` / `effective_scope_patterns` / `audit_with_exclusions`（scope.mbt），桥接新增 `scope`、`excluded` 两个模式并为 `check`/`scan` 接入 `exclude_patterns`，Node host 新增 `--config`/`--exclude` 参数、`readConfig` 与扫描剪枝谓词，CLI 接线并在报告带上范围。
 - 明确语义：配置 `exclude` 与重复 `--exclude` 取并集，按精确拼写去重并按 ordinal 排序为 `scope`；`excluded_entries` 只统计已知输入中实际匹配的条目，不估算未遍历子树；`pruned_directories` 只报告**最顶层**被剪枝目录（祖先已被整棵排除者不再列出），因此扫描与等价清单在相同排除下得到相同 `scope`/诊断/`summary`/`pruned_directories`；绝不隐式读取 `.gitignore`；结构非法路径永远不会被排除。
 - 错误语义：配置结构错误（非法 JSON、非对象、`schema_version`≠1、未知字段）→ `INPUT_CONFIG` 退出 `2`；配置/命令行非法模式 → `PATTERN_INVALID` 退出 `2`；配置无法读取 → `INPUT_IO_ERROR` 退出 `3`；非法 UTF-8 → `INPUT_ENCODING` 退出 `2`；扫描不完整仍退出 `3`，不被排除豁免。
 - 本地验证（Windows，2026-10-01）：核心测试 JS/wasm-gc 各 66/66；完整 run_check 通过（工具链 moon 0.1.20260920 / moonc v0.10.14+7d59c7ec9 / node v24.15.0，API 门禁通过，Node 测试 30 通过/2 POSIX 跳过，65 份跨目标输出逐字节一致，含 4 份排除报告）。代码量 total 3237 行（moonbit 1595、node 231、tests_moonbit 909、tests_node 502）。完整验收 `artifacts/acceptance-win32-2026-10-01T01-33-22-451Z/evidence.json` 为 `passed: true`；本机无 pwsh(PowerShell 7)，验收以 `powershell.exe` 等价调用 run_check 的临时方式运行并已还原脚本，验收脚本因而不在本次差异中。
 - 独立只读审查（2026-10-01，独立子代理）：结论 **APPROVED-WITH-NOTES，无必改项**。核验约束全部满足：HEAD 仍为 M05 无 M06 提交、仅 `pkg.generated.mbti` 暂存、无删除/改史/强制操作；排除/剪枝/错误码/桥接/端口/文档语义与代码一致，M06 保持 in_progress 且未作任何远端 CI 断言。两条低危提示已修复并补测：N1 `explain` 模式同样拒绝 `--config`/`--exclude`；N2 scope 预检遵循 `--format`（text 模式下配置/stderr 错误以文本输出）。
-- **远端验收未执行**：未获 Git 授权，未 commit/push，无对应 SHA 的公开 CI。M06 状态保持 `in_progress`，不得记为 `complete`，不绕过 CI 进入 M07；本地改动与验证记录均保留可审阅。
+- **远端验收已完成**：获用户明确授权后，M06 以 `5c6f674d61188715f7b024b803021dd10315df43` 提交并推送至 `codex/october-v0.2`（Draft PR #1）；公开 CI [36804146762](https://github.com/AlexenderSokolov/moonportcheck/actions/runs/36804146762) 的 windows-latest 与 ubuntu-24.04 两个 job 均 success（各自 Acceptance 步骤通过）。M06 由此记为 `complete`，可进入 M07。
