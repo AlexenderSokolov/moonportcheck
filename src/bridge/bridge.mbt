@@ -560,6 +560,8 @@ fn report_response(
   }
   let output = if format == "json" {
     @moonportcheck.render_detailed_json(report)
+  } else if format == "markdown" {
+    @moonportcheck.render_detailed_markdown(report)
   } else {
     @moonportcheck.render_detailed_text(report)
   }
@@ -602,6 +604,8 @@ fn baseline_response(
 ) -> String {
   let output = if format == "json" {
     @moonportcheck.render_detailed_json(report)
+  } else if format == "markdown" {
+    @moonportcheck.render_detailed_markdown(report)
   } else {
     @moonportcheck.render_detailed_text(report)
   }

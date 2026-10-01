@@ -453,6 +453,103 @@ pub fn render_detailed_text(report : DetailedReport) -> String {
 }
 
 ///|
+/// Markdown rendering of a schema 2 report. The status, scopes, diagnostics
+/// and scan issues mirror `render_detailed_text` so every format reaches the
+/// same conclusion; paths are escaped so a hostile name cannot break a table.
+pub fn render_detailed_markdown(report : DetailedReport) -> String {
+  let status = if !report.complete {
+    "INCOMPLETE"
+  } else if report.diagnostics.is_empty() {
+    "PASS (covered rules only)"
+  } else {
+    "FINDINGS"
+  }
+  let lines = [
+    "# MoonPortCheck report",
+    "",
+    "**Status:** `" +
+    status +
+    "` · **Profile:** `" +
+    report.profile +
+    "` · **Source:** `" +
+    report.source +
+    "` · **Entries:** " +
+    report.summary.entries.to_string() +
+    " (files " +
+    report.summary.files.to_string() +
+    ", directories " +
+    report.summary.directories.to_string() +
+    ")",
+    "",
+    "**Scope exclusions:** `" +
+    json_strings(report.scope) +
+    "`; excluded_entries=" +
+    report.excluded_entries.to_string() +
+    "; pruned_directories=`" +
+    json_strings(report.pruned_directories) +
+    "`",
+    "",
+  ]
+  lines.push("## Findings")
+  lines.push("")
+  let diagnostics = report.diagnostics.copy()
+  diagnostics.sort_by(detailed_order)
+  if diagnostics.is_empty() {
+    lines.push("No findings.")
+  } else {
+    lines.push("| Code | Paths | Occurrences | Message |")
+    lines.push("| --- | --- | --- | --- |")
+    for d in diagnostics {
+      let paths = d.paths.copy()
+      paths.sort_by(ordinal_compare)
+      lines.push(
+        "| `" +
+        md_cell(d.code) +
+        "` | " +
+        paths.map(path => "`" + md_cell(path) + "`").join(", ") +
+        " | " +
+        d.occurrences.to_string() +
+        " | " +
+        md_cell(d.message) +
+        " |",
+      )
+    }
+  }
+  lines.push("")
+  lines.push("## Scan issues")
+  lines.push("")
+  let issues = report.scan_issues.copy()
+  sort_scan_issues(issues)
+  if issues.is_empty() {
+    lines.push("No scan issues.")
+  } else {
+    lines.push("| Code | Path | Message |")
+    lines.push("| --- | --- | --- |")
+    for issue in issues {
+      lines.push(
+        "| `" +
+        md_cell(issue.code) +
+        "` | `" +
+        md_cell(issue.path) +
+        "` | " +
+        md_cell(issue.message) +
+        " |",
+      )
+    }
+  }
+  lines.push("")
+  lines.push("## Coverage limits")
+  if report.limitations.is_empty() {
+    lines.push("None.")
+  } else {
+    for limitation in report.limitations {
+      lines.push("- " + md_cell(limitation))
+    }
+  }
+  lines.join("\n")
+}
+
+///|
 fn parse_int_field(
   fields : Map[String, Json],
   name : String,

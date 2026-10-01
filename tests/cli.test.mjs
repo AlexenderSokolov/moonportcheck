@@ -440,3 +440,27 @@ test('CLI diff --format markdown and check --report sarif render new formats', a
   assert.ok(doc.runs[0].results.some(r => r.ruleId === 'NAME_RESERVED' && r.locations[0].physicalLocation.artifactLocation.uri === 'CON.txt'));
   assert.equal(doc.runs[0].invocations[0].executionSuccessful, true);
 });
+
+test('CLI scan and check --format markdown reach the same conclusion as json', async () => {
+  const root = await fixture();
+  await fs.writeFile(path.join(root, 'CON.txt'), 'x');
+  const scanMd = invoke('scan', root, '--format', 'markdown');
+  const scanJson = invoke('scan', root, '--format', 'json');
+  assert.equal(scanMd.status, 1, scanMd.stdout);
+  assert.equal(scanMd.status, scanJson.status);
+  assert.match(scanMd.stdout, /^# MoonPortCheck report/);
+  assert.match(scanMd.stdout, /\| `NAME_RESERVED` \| `CON\.txt` \|/);
+  const cleanRoot = await fixture();
+  const cleanMd = invoke('scan', cleanRoot, '--format', 'markdown');
+  assert.equal(cleanMd.status, 0, cleanStdoutOr(cleanMd));
+  assert.match(cleanMd.stdout, /\*\*Status:\*\* `PASS \(covered rules only\)`/);
+  // check on a manifest with --report sarif vs --format markdown share exit 1
+  const manifestFile = await manifest([{ path: 'CON.txt', kind: 'file' }]);
+  const mk = invoke('check', manifestFile, '--format', 'markdown');
+  assert.equal(mk.status, 1, mk.stdout);
+  assert.match(mk.stdout, /^# MoonPortCheck report/);
+});
+
+function cleanStdoutOr(result) {
+  return result.stdout || result.stderr || '';
+}

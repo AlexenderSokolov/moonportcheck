@@ -224,3 +224,40 @@ test "complete scan with zero issues is not falsely incomplete" {
   assert_eq(report.summary.scan_issues, 0)
   assert_true(@moonportcheck.render_detailed_text(report).contains("PASS"))
 }
+
+///|
+test "detailed markdown renders finding cells and escapes hostile paths" {
+  let report = detailed(files(["a|b.txt.", "CON.txt"]))
+  let md = @moonportcheck.render_detailed_markdown(report)
+  assert_true(md.has_prefix("# MoonPortCheck report"))
+  assert_true(md.contains("**Status:** `FINDINGS`"))
+  assert_true(md.contains("## Findings"))
+  assert_true(md.contains("| `NAME_RESERVED` | `CON.txt` |"))
+  assert_true(md.contains("`a\\|b.txt.`"))
+  // Rendering is deterministic, and this is a report table, not a diff table.
+  assert_eq(md, @moonportcheck.render_detailed_markdown(report))
+  assert_eq(md.contains("| Kind | Path | Details |"), false)
+}
+
+///|
+test "detailed markdown reports incomplete status and scan issues" {
+  let report = @moonportcheck.with_scan_issues(detailed([]), [
+    issue("SCAN_IO_ERROR", "logs/x", "Cannot read entry."),
+  ])
+  let md = @moonportcheck.render_detailed_markdown(report)
+  assert_true(md.contains("**Status:** `INCOMPLETE`"))
+  assert_true(md.contains("## Scan issues"))
+  assert_true(md.contains("## Coverage limits"))
+  assert_true(
+    md.contains("| `SCAN_IO_ERROR` | `logs/x` | Cannot read entry. |"),
+  )
+  assert_true(md.contains("No findings."))
+}
+
+///|
+test "detailed markdown renders a clean report without table rows" {
+  let md = @moonportcheck.render_detailed_markdown(detailed(files(["ok.txt"])))
+  assert_true(md.contains("**Status:** `PASS (covered rules only)`"))
+  assert_true(md.contains("No findings."))
+  assert_true(md.contains("No scan issues."))
+}

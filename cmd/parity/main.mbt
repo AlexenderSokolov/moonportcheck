@@ -286,4 +286,6 @@ fn main {
     ),
   )
   println(@moonportcheck.render_check_sarif(baseline_report))
+  // M14: the Markdown report renderer, byte-identical across both targets.
+  println(@moonportcheck.render_detailed_markdown(baseline_report))
 }

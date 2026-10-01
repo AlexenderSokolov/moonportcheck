@@ -14,4 +14,5 @@ moon test --target wasm-gc --deny-warn
 bash "$root/run_build.sh"
 node --test tests/*.test.mjs
 node scripts/parity.mjs
+node scripts/format-matrix.mjs
 node scripts/code-stats.mjs

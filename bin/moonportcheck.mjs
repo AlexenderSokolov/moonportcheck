@@ -5,9 +5,9 @@ import { HostError, parseArguments, readConfig, readManifest, scan } from '../li
 const help = `MoonPortCheck ${metadata.version} — portable-windows-v1
 
 Usage:
-  moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--baseline BASELINE.json] [--fail-on new] [--format text|json]
+  moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--baseline BASELINE.json] [--fail-on new] [--format text|json|markdown]
   moonportcheck snapshot ROOT [--config FILE] [--exclude PATTERN]...
-  moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json] [--report sarif]
+  moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json|markdown] [--report sarif]
   moonportcheck diff BEFORE.json AFTER.json [--format text|json|markdown]
   moonportcheck baseline create REPORT.json
   moonportcheck rules [--format text|json]
@@ -27,7 +27,8 @@ incomplete. It never infers renames or content changes. --format markdown
 renders a Markdown table.
 check --report sarif emits a SARIF 2.1.0 document. Locations carry only the
 artifact URI because the model has no source line numbers; no region or source
-line is fabricated.
+line is fabricated. scan/check --format markdown render a Markdown report with
+the same conclusion and exit code as text/json/sarif.
 baseline create turns a complete schema 2 report into the baseline JSON
 document (exit 0); non-schema-2 or incomplete reports exit 2. scan --baseline
 compares the scan against that baseline and exits 2 when the baseline does not

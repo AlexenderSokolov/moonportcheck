@@ -30,6 +30,16 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./run_acceptance.ps1
+      - name: Generate report artifacts and step summary
+        run: node scripts/ci-report.mjs
+      - name: Retain report artifacts
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: reports-${{ runner.os }}
+          path: artifacts/reports/
+          if-no-files-found: warn
+          retention-days: 30
       - name: Retain acceptance evidence
         if: always()
         uses: actions/upload-artifact@v7.0.1

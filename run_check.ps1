@@ -23,6 +23,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Node CLI tests failed.' }
   & node scripts/parity.mjs
   if ($LASTEXITCODE -ne 0) { throw 'Cross-target parity check failed.' }
+  & node scripts/format-matrix.mjs
+  if ($LASTEXITCODE -ne 0) { throw 'Report format consistency check failed.' }
   & node scripts/code-stats.mjs
   if ($LASTEXITCODE -ne 0) { throw 'Source statistics failed.' }
 } finally { Pop-Location }

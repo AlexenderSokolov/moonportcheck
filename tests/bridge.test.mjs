@@ -236,3 +236,22 @@ test('diff --format markdown renders a table and check --report sarif emits 2.1.
   assert.equal(hit.locations[0].physicalLocation.artifactLocation.uri, 'CON.txt');
   assert.equal(JSON.stringify(doc).includes('startLine'), false);
 });
+
+test('check and scan --format markdown report the same conclusion as json', () => {
+  const manifestText = JSON.stringify([{ path: 'CON.txt', kind: 'file' }, { path: 'b.txt', kind: 'file' }, { path: 'b.txt', kind: 'directory' }]);
+  const json = run({ mode: 'check', format: 'json', manifest_text: manifestText, exclude_patterns: [] });
+  const md = run({ mode: 'check', format: 'markdown', manifest_text: manifestText, exclude_patterns: [] });
+  assert.equal(md.exit_code, json.exit_code);
+  assert.equal(md.exit_code, 1);
+  assert.match(md.output, /^# MoonPortCheck report/);
+  assert.match(md.output, /\| `NAME_RESERVED` \| `CON\.txt` \|/);
+  assert.match(md.output, /\| `PATH_KIND_CONFLICT` \|/);
+  for (const code of JSON.parse(json.output).diagnostics.map(d => d.code)) {
+    assert.ok(md.output.includes(`\`${code}\``), `markdown carries ${code}`);
+  }
+  const empty = run({ mode: 'check', format: 'markdown', manifest_text: '[]', exclude_patterns: [] });
+  assert.equal(empty.exit_code, 0, empty.output);
+  const scanMd = run({ mode: 'scan', format: 'markdown', entries: [{ path: 'CON.txt', kind: 'file' }], scan_issues: [], exclude_patterns: [] });
+  assert.equal(scanMd.exit_code, 1);
+  assert.match(scanMd.output, /^# MoonPortCheck report/);
+});

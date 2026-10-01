@@ -54,6 +54,8 @@ pub fn render_check_sarif(DetailedReport) -> String
 
 pub fn render_detailed_json(DetailedReport) -> String
 
+pub fn render_detailed_markdown(DetailedReport) -> String
+
 pub fn render_detailed_text(DetailedReport) -> String
 
 pub fn render_json(Report) -> String
