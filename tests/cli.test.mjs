@@ -343,3 +343,46 @@ test('CLI check of an incomplete snapshot stays incomplete and exits 3', async (
   assert.equal(bad.status, 2);
   assert.match(bad.stdout, /INPUT_SCHEMA/);
 });
+
+const snapshotDoc = (overrides) => JSON.stringify({
+  format: 'moonportcheck-snapshot',
+  version: 1,
+  profile: 'portable-windows-v1',
+  complete: true,
+  scope: [],
+  entries: [],
+  scan_issues: [],
+  ...overrides,
+});
+
+test('CLI diff compares snapshots with exit 0/1/2/3', async () => {
+  const root = await fixture();
+  const before = path.join(root, 'before.json');
+  const after = path.join(root, 'after.json');
+  const clean = path.join(root, 'clean.json');
+  const scoped = path.join(root, 'scoped.json');
+  const partial = path.join(root, 'partial.json');
+  await fs.writeFile(before, snapshotDoc({ entries: [{ path: 'a.txt', kind: 'file' }, { path: 'dir', kind: 'directory' }] }));
+  await fs.writeFile(after, snapshotDoc({ entries: [{ path: 'dir', kind: 'directory' }] }));
+  await fs.writeFile(clean, snapshotDoc({ entries: [{ path: 'dir', kind: 'directory' }] }));
+  await fs.writeFile(scoped, snapshotDoc({ scope: ['*.tmp'] }));
+  await fs.writeFile(partial, snapshotDoc({ complete: false, scan_issues: [{ code: 'SCAN_LINK_SKIPPED', path: 'x.txt', message: 'Not followed.' }] }));
+  const changed = invoke('diff', before, after, '--format', 'json');
+  assert.equal(changed.status, 1, changed.stdout);
+  assert.deepEqual(JSON.parse(changed.stdout).changes.map(c => c.kind), ['removed']);
+  const same = invoke('diff', after, clean, '--format', 'json');
+  assert.equal(same.status, 0, same.stdout);
+  assert.deepEqual(JSON.parse(same.stdout).changes, []);
+  const text = invoke('diff', before, after);
+  assert.equal(text.status, 1, text.stdout);
+  assert.match(text.stdout, /- a\.txt \(removed, file\)/);
+  const mismatch = invoke('diff', after, scoped, '--format', 'json');
+  assert.equal(mismatch.status, 2, mismatch.stdout);
+  assert.match(mismatch.stdout, /INPUT_SCHEMA/);
+  const incomplete = invoke('diff', clean, partial, '--format', 'json');
+  assert.equal(incomplete.status, 3, incomplete.stdout);
+  assert.equal(JSON.parse(incomplete.stdout).complete, false);
+  const badArgs = invoke('diff', after, '--config', 'c.json');
+  assert.equal(badArgs.status, 2);
+  assert.match(badArgs.stdout, /ARGUMENT_ERROR/);
+});

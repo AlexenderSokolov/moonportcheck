@@ -137,3 +137,43 @@ test('scan accepts exclusions and incomplete scans still exit 3', () => {
   assert.deepEqual(report.scope, ['*.tmp']);
   assert.equal(report.summary.entries, 1);
 });
+
+const snapshotText = (entries, issues, exclude) => run({ mode: 'snapshot', format: 'json', entries, scan_issues: issues, exclude_patterns: exclude }).output;
+
+test('diff mode compares snapshots with the documented exit codes', () => {
+  const before = snapshotText([{ path: 'a.txt', kind: 'file' }, { path: 'dir', kind: 'directory' }], [], []);
+  const after = snapshotText([{ path: 'dir', kind: 'directory' }], [], []);
+  const changed = run({ mode: 'diff', format: 'json', before_text: before, after_text: after });
+  assert.equal(changed.exit_code, 1, changed.output);
+  const doc = JSON.parse(changed.output);
+  assert.equal(doc.format, 'moonportcheck-diff');
+  assert.equal(doc.version, 1);
+  assert.equal(doc.complete, true);
+  assert.deepEqual(doc.changes.map(c => [c.kind, c.path]), [['removed', 'a.txt']]);
+  const same = run({ mode: 'diff', format: 'json', before_text: before, after_text: before });
+  assert.equal(same.exit_code, 0, same.output);
+  assert.deepEqual(JSON.parse(same.output).changes, []);
+  const text = run({ mode: 'diff', format: 'text', before_text: before, after_text: after });
+  assert.equal(text.exit_code, 1, text.output);
+  assert.match(text.output, /- a\.txt \(removed, file\)/);
+});
+
+test('diff mode exits 3 on incomplete input and 2 on mismatch or bad input', () => {
+  const partial = snapshotText([{ path: 'x.txt', kind: 'file' }], [{ code: 'SCAN_LINK_SKIPPED', path: 'x.txt', message: 'Not followed.' }], []);
+  const full = snapshotText([{ path: 'x.txt', kind: 'file' }], [], []);
+  const incomplete = run({ mode: 'diff', format: 'json', before_text: partial, after_text: full });
+  assert.equal(incomplete.exit_code, 3, incomplete.output);
+  assert.equal(JSON.parse(incomplete.output).complete, false);
+  const textPartial = run({ mode: 'diff', format: 'text', before_text: partial, after_text: full });
+  assert.equal(textPartial.exit_code, 3);
+  assert.match(textPartial.output, /INCOMPLETE/);
+  const scopedA = snapshotText([{ path: 'x.txt', kind: 'file' }], [], ['*.tmp']);
+  const scopedB = snapshotText([{ path: 'x.txt', kind: 'file' }], [], []);
+  const mismatch = run({ mode: 'diff', format: 'json', before_text: scopedA, after_text: scopedB });
+  assert.equal(mismatch.exit_code, 2);
+  assert.match(mismatch.output, /INPUT_SCHEMA/);
+  const badJson = run({ mode: 'diff', format: 'json', before_text: '{', after_text: full });
+  assert.equal(badJson.exit_code, 2);
+  const arrayDoc = run({ mode: 'diff', format: 'json', before_text: '[{"path":"x","kind":"file"}]', after_text: full });
+  assert.equal(arrayDoc.exit_code, 2);
+});

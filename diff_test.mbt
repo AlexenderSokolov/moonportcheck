@@ -125,3 +125,27 @@ test "diff_render_is_stable" {
     "{\"format\":\"moonportcheck-diff\",\"version\":1,\"complete\":true,\"changes\":[{\"kind\":\"added\",\"path\":\"a2.txt\",\"paired_with\":\"\",\"before_kind\":\"\",\"after_kind\":\"file\"},{\"kind\":\"removed\",\"path\":\"a.txt\",\"paired_with\":\"\",\"before_kind\":\"file\",\"after_kind\":\"\"},{\"kind\":\"removed\",\"path\":\"b.txt\",\"paired_with\":\"\",\"before_kind\":\"file\",\"after_kind\":\"\"}]}",
   )
 }
+
+///|
+test "diff_text_renders_stable_human_output" {
+  let diff = diff_of(
+    snapshot_of([snap_file("b.txt"), snap_file("a.txt")], [], []),
+    snapshot_of([snap_file("a2.txt")], [], []),
+  )
+  assert_eq(
+    @moonportcheck.render_snapshot_diff_text(diff),
+    "+ a2.txt (added, file)\n" +
+    "- a.txt (removed, file)\n" +
+    "- b.txt (removed, file)\n",
+  )
+  let partial = snapshot_of(
+    [snap_file("x.txt")],
+    [issue("SCAN_LINK_SKIPPED", "x.txt", "Not followed.")],
+    [],
+  )
+  let warning = diff_of(partial, snapshot_of([snap_file("x.txt")], [], []))
+  assert_eq(
+    @moonportcheck.render_snapshot_diff_text(warning),
+    "INCOMPLETE: the input snapshot is incomplete; the diff is not trustworthy.\nNo differences.\n",
+  )
+}

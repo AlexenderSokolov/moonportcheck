@@ -48,6 +48,8 @@ pub fn render_rules_text(Array[RuleInfo]) -> String
 
 pub fn render_snapshot_diff_json(SnapshotDiff) -> String
 
+pub fn render_snapshot_diff_text(SnapshotDiff) -> String
+
 pub fn render_snapshot_json(Snapshot) -> String
 
 pub fn render_text(Report) -> String

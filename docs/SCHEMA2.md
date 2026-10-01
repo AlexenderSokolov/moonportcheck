@@ -1,6 +1,6 @@
 # Schema 2：详细报告与消费迁移
 
-本文对应 `0.2.0-dev` 的 M04/M06/M07/M08/M09 详细诊断接口。源码处于开发阶段，尚未正式发布。M04 增加来源证据与独立扫描问题；M06 增加配置化排除与目录剪枝，并接入 `scope`、`excluded_entries`、`pruned_directories` 字段；M07 增加快照模型、解析与序列化（独立文档格式见下文「快照文档」）；M08 增加 `snapshot` 命令并使 `check` 接受快照；M09 增加快照差异核心与报告（不完整快照 diff 见下）。基线、SARIF 和 Markdown 报告属于后续里程碑，不能由本文推断它们已经可用。
+本文对应 `0.2.0-dev` 的 M04/M06/M07/M08/M09/M10 详细诊断接口。源码处于开发阶段，尚未正式发布。M04 增加来源证据与独立扫描问题；M06 增加配置化排除与目录剪枝，并接入 `scope`、`excluded_entries`、`pruned_directories` 字段；M07 增加快照模型、解析与序列化（独立文档格式见下文「快照文档」）；M08 增加 `snapshot` 命令并使 `check` 接受快照；M09 增加快照差异核心与报告；M10 增加 `diff` 命令与退出语义。基线、SARIF 和 Markdown 报告属于后续里程碑，不能由本文推断它们已经可用。
 
 ## 选择需要的接口
 
@@ -166,7 +166,9 @@ schema 2 保留 `profile`、`source`、`complete`、`summary`、`diagnostics` �
 
 - 先按原始路径精确匹配：同一路径类型改变记为 `kind`；未被精确匹配的条目再按 ASCII 折叠比较，只有**一对一且类型相同**的折叠才记为 `case`（`paired_with` 记录折叠前的路径），不推测一般重命名或内容变化。
 - 变化排序固定：`added`、`removed`、`kind`、`case`，同组内按路径 ordinal。
-- 两份快照范围必须逐项相同，否则 `INPUT_SCHEMA`（CLI 侧退出 `2`）。`complete` 为两份输入的完整度取与；`diff` 命令在不完整输入时退出 `3`（M10）。M09 只提供核心与渲染，`diff` 桥接模式与 CLI 在 M10 交付。
+- 两份快照范围必须逐项相同，否则 `INPUT_SCHEMA`（CLI 侧退出 `2`）。`complete` 为两份输入的完整度取与；`diff` 命令在不完整输入时退出 `3`。M09 提供核心与渲染；M10 提供 `diff` 桥接模式与 CLI `moonportcheck diff BEFORE.json AFTER.json [--format text|json]`。
+
+`diff` 的退出码：范围不同或文档损坏退出 `2`、任一输入不完整退出 `3`、有变化退出 `1`、无变化退出 `0`。text 输出在前一行标注 `INCOMPLETE` 提示（不完整时），每行形如 `+ new.tmp (added, file)` / `- old.txt (removed, file)` / `~ C.txt (kind, file -> directory)` / `~ A.txt (case, a.txt -> A.txt)`。
 
 ## 机器消费者迁移步骤1. 对审计／错误对象先验证 `schema_version === 2`，再区分 `error` 与审计报告；规则查询仍按数组读取。
 2. 将原来在 `diagnostics` 中筛选 `SCAN_*` 的代码移到外层 `scan_issues`。统计路径问题时使用 `summary.diagnostic_groups`，统计扫描问题时使用 `summary.scan_issues`。

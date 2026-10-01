@@ -260,6 +260,45 @@ pub fn run_request(request : String) -> String {
           )
       }
     }
+    Some(String("diff")) => {
+      // Compare two snapshot documents. Exit codes: 2 for a malformed document
+      // or mismatched scopes, 3 when either input is incomplete, 1 when there
+      // are changes and 0 when there are none.
+      guard fields.get("before_text") is Some(String(before_text)) else {
+        return error_response(
+          format, 2, "INPUT_SCHEMA", "Missing the before snapshot text.",
+        )
+      }
+      guard fields.get("after_text") is Some(String(after_text)) else {
+        return error_response(
+          format, 2, "INPUT_SCHEMA", "Missing the after snapshot text.",
+        )
+      }
+      let before = match @moonportcheck.parse_snapshot(before_text) {
+        Err(e) => return error_response(format, 2, e.code, e.message)
+        Ok(snapshot) => snapshot
+      }
+      let after = match @moonportcheck.parse_snapshot(after_text) {
+        Err(e) => return error_response(format, 2, e.code, e.message)
+        Ok(snapshot) => snapshot
+      }
+      let diff = match @moonportcheck.diff_snapshots(before, after) {
+        Err(e) => return error_response(format, 2, e.code, e.message)
+        Ok(diff) => diff
+      }
+      let output = match format {
+        "json" => @moonportcheck.render_snapshot_diff_json(diff)
+        _ => @moonportcheck.render_snapshot_diff_text(diff)
+      }
+      let exit = if diff.complete == false {
+        3
+      } else if diff.changes.length() > 0 {
+        1
+      } else {
+        0
+      }
+      response(exit, output)
+    }
     _ => error_response(format, 2, "ARGUMENT_ERROR", "Unknown request mode.")
   }
 }

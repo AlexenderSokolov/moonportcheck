@@ -8,6 +8,7 @@ Usage:
   moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--format text|json]
   moonportcheck snapshot ROOT [--config FILE] [--exclude PATTERN]...
   moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json]
+  moonportcheck diff BEFORE.json AFTER.json [--format text|json]
   moonportcheck rules [--format text|json]
   moonportcheck explain CODE [--format text|json]
   moonportcheck --help
@@ -19,11 +20,14 @@ scope; extra exclusions can only shrink it and an incomplete snapshot stays
 incomplete.
 snapshot writes the fixed-format snapshot JSON document to stdout (no --format);
 exit 0 when the scan was complete and 3 when it was not.
+diff compares two snapshot documents: exit 0 with no changes, 1 with changes,
+2 for a malformed document or mismatched scopes, and 3 when either input is
+incomplete. It never infers renames or content changes.
 scan includes hidden entries and never follows symbolic links or junctions.
 --config reads a versioned JSON configuration ({"schema_version":1,"exclude":[...]});
 its exclusions and every --exclude are combined. No .gitignore is read implicitly.
 Reports are written to stdout. Prefix paths beginning with '-' with './'.
-Exit codes: 0 complete/pass; 1 findings; 2 invalid input; 3 incomplete scan or I/O error.`;
+Exit codes: 0 complete/pass; 1 findings/changes; 2 invalid input; 3 incomplete scan or I/O error.`;
 
 async function resolveScope(runRequest, options) {
   if (options.config === null && options.excludes.length === 0) return { patterns: [] };
@@ -70,6 +74,12 @@ async function main() {
           request = options.mode === 'snapshot'
             ? { mode: 'snapshot', format: 'json', ...scanned, exclude_patterns: scope.patterns }
             : { mode: 'scan', format: options.format, ...scanned, exclude_patterns: scope.patterns };
+        } else if (options.mode === 'diff') {
+          const [before_text, after_text] = await Promise.all([
+            readManifest(options.target),
+            readManifest(options.after),
+          ]);
+          request = { mode: 'diff', format: options.format, before_text, after_text };
         } else {
           request = { mode: 'check', format: options.format, manifest_text: await readManifest(options.target), exclude_patterns: scope.patterns };
         }

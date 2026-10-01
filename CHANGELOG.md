@@ -11,6 +11,7 @@
 - M07 增加快照模型 `Snapshot` 与 `build_snapshot` / `parse_snapshot` / `render_snapshot_json`：持久化唯一排序条目、范围、完整性与扫描问题（不含内容/时间戳/绝对路径），往返一致、排序稳定、损坏或非规范输入拒绝。`check` 快照支持与 `snapshot` 命令在 M08 提供。
 - M08 增加 `snapshot ROOT` 命令（导出固定 JSON 快照文档，完整退出 0、不完整退出 3）与 `audit_snapshot`：`check` 现在接受原数组清单或快照文档，检查快照时继承其范围、额外排除只能缩小、不完整快照始终不完整，报告 `source` 记为 `"snapshot"`；profile 不匹配的快照拒绝。
 - M09 增加快照差异核心 `DiffKind` / `SnapshotChange` / `SnapshotDiff` / `diff_snapshots` 与 `render_snapshot_diff_json`：先精确路径匹配、再 ASCII 折叠，仅一对一且类型相同的折叠记为大小写变化，报告新增/移除/类型/大小写四类变化并按固定顺序排序；两份快照范围不同拒绝（`INPUT_SCHEMA`），`complete` 取两份输入的完整度。`diff` 命令在 M10 提供。
+- M10 增加 `diff` 命令与文本渲染 `render_snapshot_diff_text`：`moonportcheck diff BEFORE.json AFTER.json [--format text|json]`，退出码 0=无变化、1=有变化、2=文档损坏或范围不同、3=任一输入不完整（text 输出标注 `INCOMPLETE`）。
 - 快照、差异、基线和新的报告格式尚待对应里程碑实现。
 
 各里程碑的完成情况、提交与公开 CI 以 [V02_PROGRESS.md](docs/V02_PROGRESS.md) 为准；开发版本号不表示正式包发布或赛事验收。

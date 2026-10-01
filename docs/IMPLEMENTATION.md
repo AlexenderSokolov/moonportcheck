@@ -181,3 +181,19 @@ and the serialized document is a stable `{"format":"moonportcheck-diff",
 "version":1,"complete":bool,"changes":[...]}`; `complete` is the conjunction of
 the two inputs' completeness. `cmd/parity` gains one diff fixture (69 reports
 total). The `diff` bridge mode and CLI arrive in M10.
+
+## M10 additions (v0.2, diff command and exit semantics)
+
+`diff.mbt` gains `render_snapshot_diff_text(SnapshotDiff) -> String`, a stable
+human-readable rendering that flags an incomplete input on the first line
+(`INCOMPLETE: the input snapshot is incomplete; ...`). `src/bridge` adds a
+`diff` mode
+(`{mode:"diff", format, before_text, after_text}`): both inputs are parsed as
+snapshots, compared with `diff_snapshots`, and rendered as the JSON document or
+the text rendering per `format`. Exit codes: `2` for a malformed document or
+mismatched scopes, `3` when either input is incomplete, `1` when there are
+changes and `0` otherwise. `lib/host.mjs` `parseArguments` accepts `diff`
+(exactly two snapshot paths; `--config`/`--exclude` rejected; `--format`
+`text`/`json` allowed) and the bin wires
+`moonportcheck diff BEFORE.json AFTER.json`. `cmd/parity` count stays 69 because
+the text rendering derives from the same diff structure.

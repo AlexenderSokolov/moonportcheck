@@ -233,3 +233,40 @@ pub fn render_snapshot_diff_json(diff : SnapshotDiff) -> String {
   .join(",") +
   "]}"
 }
+
+///|
+/// Stable human-readable diff. An incomplete input is flagged on the first
+/// line so callers can see why the process exits 3 for a potentially stale diff.
+pub fn render_snapshot_diff_text(diff : SnapshotDiff) -> String {
+  let warning = if diff.complete {
+    ""
+  } else {
+    "INCOMPLETE: the input snapshot is incomplete; the diff is not trustworthy.\n"
+  }
+  let lines = diff.changes.map(change => {
+    match change.kind {
+      Added => "+ " + change.path + " (added, " + change.after_kind + ")"
+      Removed => "- " + change.path + " (removed, " + change.before_kind + ")"
+      KindChanged =>
+        "~ " +
+        change.path +
+        " (kind, " +
+        change.before_kind +
+        " -> " +
+        change.after_kind +
+        ")"
+      CaseChanged =>
+        "~ " +
+        change.path +
+        " (case, " +
+        change.paired_with +
+        " -> " +
+        change.path +
+        ")"
+    }
+  })
+  if lines.length() == 0 {
+    return warning + "No differences.\n"
+  }
+  warning + lines.join("\n") + "\n"
+}
