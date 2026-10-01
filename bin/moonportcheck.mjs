@@ -5,10 +5,11 @@ import { HostError, parseArguments, readConfig, readManifest, scan } from '../li
 const help = `MoonPortCheck ${metadata.version} — portable-windows-v1
 
 Usage:
-  moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--format text|json]
+  moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--baseline BASELINE.json] [--fail-on new] [--format text|json]
   moonportcheck snapshot ROOT [--config FILE] [--exclude PATTERN]...
   moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json]
   moonportcheck diff BEFORE.json AFTER.json [--format text|json]
+  moonportcheck baseline create REPORT.json
   moonportcheck rules [--format text|json]
   moonportcheck explain CODE [--format text|json]
   moonportcheck --help
@@ -23,6 +24,12 @@ exit 0 when the scan was complete and 3 when it was not.
 diff compares two snapshot documents: exit 0 with no changes, 1 with changes,
 2 for a malformed document or mismatched scopes, and 3 when either input is
 incomplete. It never infers renames or content changes.
+baseline create turns a complete schema 2 report into the baseline JSON
+document (exit 0); non-schema-2 or incomplete reports exit 2. scan --baseline
+compares the scan against that baseline and exits 2 when the baseline does not
+match the profile, rules version, or effective scope; --fail-on new returns 1
+only for fresh (new) or worsened groups, otherwise the whole problem set decides.
+An incomplete scan still exits 3 and is never exempted by a baseline.
 scan includes hidden entries and never follows symbolic links or junctions.
 --config reads a versioned JSON configuration ({"schema_version":1,"exclude":[...]});
 its exclusions and every --exclude are combined. No .gitignore is read implicitly.
@@ -74,12 +81,18 @@ async function main() {
           request = options.mode === 'snapshot'
             ? { mode: 'snapshot', format: 'json', ...scanned, exclude_patterns: scope.patterns }
             : { mode: 'scan', format: options.format, ...scanned, exclude_patterns: scope.patterns };
+          if (options.mode === 'scan' && options.baseline !== undefined) {
+            request.baseline_text = await readManifest(options.baseline);
+            if (options.fail_on) request.fail_on = true;
+          }
         } else if (options.mode === 'diff') {
           const [before_text, after_text] = await Promise.all([
             readManifest(options.target),
             readManifest(options.after),
           ]);
           request = { mode: 'diff', format: options.format, before_text, after_text };
+        } else if (options.mode === 'baseline') {
+          request = { mode: 'baseline', format: 'json', report_text: await readManifest(options.target) };
         } else {
           request = { mode: 'check', format: options.format, manifest_text: await readManifest(options.target), exclude_patterns: scope.patterns };
         }

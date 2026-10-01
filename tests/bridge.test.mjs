@@ -177,3 +177,41 @@ test('diff mode exits 3 on incomplete input and 2 on mismatch or bad input', () 
   const arrayDoc = run({ mode: 'diff', format: 'json', before_text: '[{"path":"x","kind":"file"}]', after_text: full });
   assert.equal(arrayDoc.exit_code, 2);
 });
+
+const scanJson = (extra) => run({ mode: 'scan', format: 'json', ...extra }).output;
+
+test('baseline mode builds from a complete report and rejects incomplete ones', () => {
+  const report = scanJson({ entries: [{ path: 'CON.txt', kind: 'file' }], scan_issues: [], exclude_patterns: [] });
+  const created = run({ mode: 'baseline', format: 'json', report_text: report });
+  assert.equal(created.exit_code, 0, created.output);
+  const doc = JSON.parse(created.output);
+  assert.equal(doc.format, 'moonportcheck-baseline');
+  assert.deepEqual(doc.groups.map(g => [g.code, g.anchor]), [['NAME_RESERVED', 'CON.txt']]);
+  const incompleteReport = scanJson({ entries: [{ path: 'CON.txt', kind: 'file' }], scan_issues: [{ code: 'SCAN_IO_ERROR', path: 'x', message: 'bad' }], exclude_patterns: [] });
+  const rejected = run({ mode: 'baseline', format: 'json', report_text: incompleteReport });
+  assert.equal(rejected.exit_code, 2, rejected.output);
+  assert.match(rejected.output, /INPUT_INCOMPLETE/);
+  const bad = run({ mode: 'baseline', format: 'json', report_text: '{' });
+  assert.equal(bad.exit_code, 2);
+});
+
+const baselineFrom = (entries, exclude) => run({ mode: 'baseline', format: 'json', report_text: scanJson({ entries, scan_issues: [], exclude_patterns: exclude }) }).output;
+
+test('scan --baseline gates exits for new, worsened and mismatched baselines', () => {
+  const baselineText = baselineFrom([{ path: 'CON.txt', kind: 'file' }], []);
+  const same = run({ mode: 'scan', format: 'json', baseline_text: baselineText, fail_on: true, entries: [{ path: 'CON.txt', kind: 'file' }], scan_issues: [], exclude_patterns: [] });
+  assert.equal(same.exit_code, 0, same.output);
+  const fresh = run({ mode: 'scan', format: 'json', baseline_text: baselineText, fail_on: true, entries: [{ path: 'CON.txt', kind: 'file' }, { path: 'sub/CON.txt', kind: 'file' }], scan_issues: [], exclude_patterns: [] });
+  assert.equal(fresh.exit_code, 1, fresh.output);
+  const allFindings = run({ mode: 'scan', format: 'json', baseline_text: baselineText, entries: [{ path: 'CON.txt', kind: 'file' }], scan_issues: [], exclude_patterns: [] });
+  assert.equal(allFindings.exit_code, 1, allFindings.output);
+  const broken = run({ mode: 'scan', format: 'json', baseline_text: baselineText, fail_on: true, entries: [], scan_issues: [{ code: 'SCAN_IO_ERROR', path: 'x', message: 'bad' }], exclude_patterns: [] });
+  assert.equal(broken.exit_code, 3, broken.output);
+  const badBaseline = run({ mode: 'scan', format: 'json', baseline_text: '{', fail_on: true, entries: [], scan_issues: [], exclude_patterns: [] });
+  assert.equal(badBaseline.exit_code, 2);
+  assert.match(badBaseline.output, /INPUT_JSON/);
+  const scopedBaseline = baselineFrom([], ['*.tmp']);
+  const scopeMismatch = run({ mode: 'scan', format: 'json', baseline_text: scopedBaseline, entries: [], scan_issues: [], exclude_patterns: [] });
+  assert.equal(scopeMismatch.exit_code, 2, scopeMismatch.output);
+  assert.match(scopeMismatch.output, /scope/);
+});

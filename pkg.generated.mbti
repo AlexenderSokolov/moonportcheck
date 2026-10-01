@@ -30,6 +30,10 @@ pub fn entry_excluded(ExclusionScope, PathEntry) -> Bool
 
 pub fn explain(String) -> RuleInfo?
 
+pub fn parse_baseline(String) -> Result[Baseline, InputError]
+
+pub fn parse_detailed_report(String) -> Result[DetailedReport, InputError]
+
 pub fn parse_manifest(String) -> Result[Array[PathEntry], InputError]
 
 pub fn parse_pattern(String) -> Result[PathPattern, InputError]

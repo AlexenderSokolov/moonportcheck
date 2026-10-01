@@ -255,4 +255,24 @@ fn main {
       ),
     ),
   )
+  // M12: baseline create is a parse-rebuild round trip. Feed the rendered
+  // report document back through parse_detailed_report and build_baseline and
+  // the resulting document must be byte-identical to the source baseline.
+  println(
+    @moonportcheck.render_baseline_json(
+      match
+        @moonportcheck.build_baseline(
+          match
+            @moonportcheck.parse_detailed_report(
+              @moonportcheck.render_detailed_json(baseline_report),
+            ) {
+            Ok(report) => report
+            Err(_) => abort("Detailed report parse failed")
+          },
+        ) {
+        Ok(baseline) => baseline
+        Err(_) => abort("Baseline rebuild failed")
+      },
+    ),
+  )
 }

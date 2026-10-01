@@ -326,3 +326,137 @@ pub fn render_baseline_diff_text(diff : BaselineDiff) -> String {
   })
   lines.join("\n") + "\n"
 }
+
+///|
+/// Parse a baseline document produced by render_baseline_json. Field names are
+/// strict so a baseline cannot silently drop a newly added future field.
+pub fn parse_baseline(text : String) -> Result[Baseline, InputError] {
+  let value = @json.parse(text) catch {
+    _ =>
+      return Err({
+        code: "INPUT_JSON",
+        message: "Invalid JSON in the baseline.",
+      })
+  }
+  guard value is Object(fields) else {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "The baseline must be a JSON object.",
+    })
+  }
+  match fields.get("format") {
+    Some(String("moonportcheck-baseline")) => ()
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "Unsupported baseline format.",
+      })
+  }
+  match fields.get("schema_version") {
+    Some(Number(n, ..)) if n == 1.0 => ()
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "Unsupported baseline version.",
+      })
+  }
+  guard fields.get("profile") is Some(String(profile)) else {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "The baseline requires a profile.",
+    })
+  }
+  guard fields.get("rules_version") is Some(String(rules_version)) else {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "The baseline requires a rules_version.",
+    })
+  }
+  let scope = match fields.get("scope") {
+    Some(Array(items)) =>
+      match collect_snapshot_strings(items, "scope") {
+        Err(error) => return Err(error)
+        Ok(values) => values
+      }
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "The baseline requires a scope array.",
+      })
+  }
+  let normalized_scope = match parse_scope(scope) {
+    Err(error) => return Err(error)
+    Ok(parsed) => effective_scope_patterns(parsed)
+  }
+  let groups = match fields.get("groups") {
+    Some(Array(items)) => {
+      let list : Array[BaselineGroup] = []
+      for index in 0..<items.length() {
+        guard items[index] is Object(group_fields) else {
+          return Err({
+            code: "INPUT_SCHEMA",
+            message: "A baseline group must be an object.",
+          })
+        }
+        guard group_fields.get("code") is Some(String(code)) else {
+          return Err({
+            code: "INPUT_SCHEMA",
+            message: "A baseline group requires a code.",
+          })
+        }
+        guard group_fields.get("anchor") is Some(String(anchor)) else {
+          return Err({
+            code: "INPUT_SCHEMA",
+            message: "A baseline group requires an anchor.",
+          })
+        }
+        let members = match group_fields.get("members") {
+          Some(Array(items)) =>
+            match parse_source_members(items) {
+              Err(error) => return Err(error)
+              Ok(values) => values
+            }
+          _ =>
+            return Err({
+              code: "INPUT_SCHEMA",
+              message: "A baseline group requires a members array.",
+            })
+        }
+        let source_total = match parse_int_field(group_fields, "source_total") {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        list.push({ code, anchor, members, source_total, })
+      }
+      list
+    }
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "The baseline requires a groups array.",
+      })
+  }
+  for name in fields.keys() {
+    match name {
+      "format"
+      | "schema_version"
+      | "profile"
+      | "rules_version"
+      | "scope"
+      | "groups" => ()
+      _ =>
+        return Err({
+          code: "INPUT_SCHEMA",
+          message: "Unknown baseline field: " + name,
+        })
+    }
+  }
+  Ok({
+    format: "moonportcheck-baseline",
+    schema_version: 1,
+    profile,
+    rules_version,
+    scope: normalized_scope,
+    groups,
+  })
+}

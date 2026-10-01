@@ -222,7 +222,39 @@ pub fn run_request(request : String) -> String {
           )
       }
       let report = @moonportcheck.with_scan_issues(base, issues)
-      report_response(format, report)
+      match fields.get("baseline_text") {
+        None => report_response(format, report)
+        Some(String(baseline_text)) => {
+          let baseline = match @moonportcheck.parse_baseline(baseline_text) {
+            Err(e) => return error_response(format, 2, e.code, e.message)
+            Ok(baseline) => baseline
+          }
+          if baseline.profile != report.profile {
+            return error_response(
+              format, 2, "INPUT_SCHEMA", "Baseline profile does not match the scanned profile.",
+            )
+          }
+          if baseline.rules_version != @moonportcheck.rules_version() {
+            return error_response(
+              format, 2, "INPUT_SCHEMA", "Baseline rules version does not match the current rules.",
+            )
+          }
+          if baseline.scope != report.scope {
+            return error_response(
+              format, 2, "INPUT_SCHEMA", "Baseline scope does not match the scanned scope.",
+            )
+          }
+          let fail_on_new = match fields.get("fail_on") {
+            Some(True) => true
+            _ => false
+          }
+          baseline_response(format, baseline, report, fail_on_new)
+        }
+        Some(_) =>
+          error_response(
+            format, 2, "INPUT_SCHEMA", "Baseline text must be a string.",
+          )
+      }
     }
     Some(String("snapshot")) => {
       // Build and serialize a canonical snapshot from a scanned tree. The
@@ -298,6 +330,22 @@ pub fn run_request(request : String) -> String {
         0
       }
       response(exit, output)
+    }
+    Some(String("baseline")) => {
+      // Build the fixed baseline document from a schema 2 report. Invalid or
+      // incomplete reports exit 2; a valid baseline always exits 0.
+      guard fields.get("report_text") is Some(String(text)) else {
+        return error_response(format, 2, "INPUT_SCHEMA", "Missing report text.")
+      }
+      match @moonportcheck.parse_detailed_report(text) {
+        Err(e) => error_response(format, 2, e.code, e.message)
+        Ok(report) =>
+          match @moonportcheck.build_baseline(report) {
+            Err(e) => error_response(format, 2, e.code, e.message)
+            Ok(baseline) =>
+              response(0, @moonportcheck.render_baseline_json(baseline))
+          }
+      }
     }
     _ => error_response(format, 2, "ARGUMENT_ERROR", "Unknown request mode.")
   }
@@ -511,6 +559,47 @@ fn report_response(
     @moonportcheck.render_detailed_json(report)
   } else {
     @moonportcheck.render_detailed_text(report)
+  }
+  response(exit_code, output)
+}
+
+///|
+/// Same report output as report_response, but the exit code follows the
+/// baseline policy: an incomplete scan always exits 3, --fail-on new exits 1
+/// for fresh or worsened groups, and otherwise the whole problem set decides.
+fn baseline_response(
+  format : String,
+  baseline : @moonportcheck.Baseline,
+  report : @moonportcheck.DetailedReport,
+  fail_on_new : Bool,
+) -> String {
+  let output = if format == "json" {
+    @moonportcheck.render_detailed_json(report)
+  } else {
+    @moonportcheck.render_detailed_text(report)
+  }
+  let diff = @moonportcheck.diff_with_baseline(baseline, report)
+  let mut has_new = false
+  let mut has_worsened = false
+  for change in diff.changes {
+    match change.status {
+      @moonportcheck.New => has_new = true
+      @moonportcheck.Worsened => has_worsened = true
+      _ => ()
+    }
+  }
+  let exit_code = if report.complete == false {
+    3
+  } else if fail_on_new {
+    if has_new || has_worsened {
+      1
+    } else {
+      0
+    }
+  } else if report.diagnostics.length() > 0 {
+    1
+  } else {
+    0
   }
   response(exit_code, output)
 }

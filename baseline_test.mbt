@@ -156,3 +156,23 @@ test "baseline and classification render byte-stable documents" {
     "[existing] NAME_RESERVED@a/CON.txt (current_source_total=1)\n",
   )
 }
+
+///|
+test "baseline and schema 2 reports parse back to equal values" {
+  let report = detailed(files(["Data/a", "data/b", "CON.txt"]))
+  let parsed_report = match
+    @moonportcheck.parse_detailed_report(
+      @moonportcheck.render_detailed_json(report),
+    ) {
+    Err(e) => fail(e.code + ": " + e.message)
+    Ok(parsed) => parsed
+  }
+  @test.assert_eq(parsed_report, report)
+  let baseline = baseline_of(report)
+  let parsed_baseline = match
+    @moonportcheck.parse_baseline(@moonportcheck.render_baseline_json(baseline)) {
+    Err(e) => fail(e.code + ": " + e.message)
+    Ok(parsed) => parsed
+  }
+  @test.assert_eq(parsed_baseline, baseline)
+}

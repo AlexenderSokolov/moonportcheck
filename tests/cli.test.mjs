@@ -386,3 +386,36 @@ test('CLI diff compares snapshots with exit 0/1/2/3', async () => {
   assert.equal(badArgs.status, 2);
   assert.match(badArgs.stdout, /ARGUMENT_ERROR/);
 });
+
+test('CLI baseline create writes a fixed document and scan --baseline gates exits', async () => {
+  const root = await fixture();
+  const reportFile = path.join(root, 'report.json');
+  const baselineFile = path.join(root, 'baseline.json');
+  const report = invoke('scan', root, '--format', 'json');
+  assert.equal(report.status, 0, report.stdout);
+  await fs.writeFile(reportFile, report.stdout);
+  const created = invoke('baseline', 'create', reportFile);
+  assert.equal(created.status, 0, created.stdout);
+  const baseline = JSON.parse(created.stdout);
+  assert.equal(baseline.format, 'moonportcheck-baseline');
+  await fs.writeFile(baselineFile, created.stdout);
+  // Re-scan the same empty tree against the baseline: no findings → 0 (default and fail-on)
+  const same = invoke('scan', root, '--baseline', baselineFile, '--fail-on', 'new', '--format', 'json');
+  assert.equal(same.status, 0, same.stdout);
+  // A fresh finding makes --fail-on new return 1
+  const freshRoot = await fixture();
+  await fs.writeFile(path.join(freshRoot, 'CON.txt'), 'x');
+  const fresh = invoke('scan', freshRoot, '--baseline', baselineFile, '--fail-on', 'new', '--format', 'json');
+  assert.equal(fresh.status, 1, fresh.stdout);
+  // Default judgment (no --fail-on) also returns 1 because findings exist
+  const allFindings = invoke('scan', freshRoot, '--baseline', baselineFile, '--format', 'json');
+  assert.equal(allFindings.status, 1, allFindings.stdout);
+  // Incomplete scan is never exempted by a baseline
+  const broken = invoke('scan', path.join(root, 'missing'), '--baseline', baselineFile, '--fail-on', 'new');
+  assert.equal(broken.status, 3, broken.stdout);
+  // Baseline create rejects an incomplete report
+  const badReportFile = path.join(root, 'bad.json');
+  await fs.writeFile(badReportFile, '{broken');
+  const badCreate = invoke('baseline', 'create', badReportFile);
+  assert.equal(badCreate.status, 2, badCreate.stdout);
+});

@@ -451,3 +451,358 @@ pub fn render_detailed_text(report : DetailedReport) -> String {
   }
   lines.join("\n")
 }
+
+///|
+fn parse_int_field(
+  fields : Map[String, Json],
+  name : String,
+) -> Result[Int, InputError] {
+  match fields.get(name) {
+    Some(Number(n, ..)) => {
+      let int = n.to_int()
+      if int.to_double() == n {
+        Ok(int)
+      } else {
+        Err({
+          code: "INPUT_SCHEMA",
+          message: "The " + name + " field must be an integer.",
+        })
+      }
+    }
+    _ =>
+      Err({
+        code: "INPUT_SCHEMA",
+        message: "The " + name + " field requires an integer.",
+      })
+  }
+}
+
+///|
+fn parse_diagnostic_strings(
+  items : Array[Json],
+  label : String,
+) -> Result[Array[String], InputError] {
+  let strings : Array[String] = []
+  for index in 0..<items.length() {
+    guard items[index] is String(value) else {
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "The " + label + " array requires strings.",
+      })
+    }
+    strings.push(value)
+  }
+  Ok(strings)
+}
+
+///|
+fn parse_source_members(
+  items : Array[Json],
+) -> Result[Array[SourceMember], InputError] {
+  let members : Array[SourceMember] = []
+  for index in 0..<items.length() {
+    guard items[index] is Object(fields) else {
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "A source member must be an object.",
+      })
+    }
+    guard fields.get("path") is Some(String(path)) else {
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "A source member requires a path.",
+      })
+    }
+    let kind = match fields.get("kind") {
+      Some(String("file")) => File
+      Some(String("directory")) => Directory
+      _ =>
+        return Err({
+          code: "INPUT_SCHEMA",
+          message: "A source member kind must be file or directory.",
+        })
+    }
+    let count = match parse_int_field(fields, "count") {
+      Err(error) => return Err(error)
+      Ok(count) => count
+    }
+    members.push({ path, kind, count, })
+  }
+  Ok(members)
+}
+
+///|
+fn parse_detailed_diagnostic(
+  fields : Map[String, Json],
+) -> Result[DetailedDiagnostic, InputError] {
+  guard fields.get("code") is Some(String(code)) else {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "A diagnostic requires a code.",
+    })
+  }
+  guard fields.get("severity") is Some(String(severity)) else {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "A diagnostic requires a severity.",
+    })
+  }
+  let paths = match fields.get("paths") {
+    Some(Array(items)) =>
+      match parse_diagnostic_strings(items, "paths") {
+        Err(error) => return Err(error)
+        Ok(values) => values
+      }
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "A diagnostic requires a paths array.",
+      })
+  }
+  let occurrences = match parse_int_field(fields, "occurrences") {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  guard fields.get("message") is Some(String(message)) else {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "A diagnostic requires a message.",
+    })
+  }
+  guard fields.get("anchor") is Some(String(anchor)) else {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "A diagnostic requires an anchor.",
+    })
+  }
+  guard fields.get("group_key") is Some(String(group_key)) else {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "A diagnostic requires a group_key.",
+    })
+  }
+  let members = match fields.get("members") {
+    Some(Array(items)) =>
+      match parse_source_members(items) {
+        Err(error) => return Err(error)
+        Ok(values) => values
+      }
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "A diagnostic requires a members array.",
+      })
+  }
+  let source_examples = match fields.get("source_examples") {
+    Some(Array(items)) =>
+      match parse_source_members(items) {
+        Err(error) => return Err(error)
+        Ok(values) => values
+      }
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "A diagnostic requires a source_examples array.",
+      })
+  }
+  let source_total = match parse_int_field(fields, "source_total") {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let sources_truncated = match fields.get("sources_truncated") {
+    Some(True) => true
+    Some(False) => false
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "A diagnostic requires a boolean sources_truncated.",
+      })
+  }
+  Ok({
+    code,
+    severity,
+    paths,
+    occurrences,
+    message,
+    anchor,
+    group_key,
+    members,
+    source_examples,
+    source_total,
+    sources_truncated,
+  })
+}
+
+///|
+/// Parse a schema 2 report document produced by render_detailed_json. The
+/// parser is strict about field names and rejects unknown members so a
+/// baseline cannot silently drop a newly added report field.
+pub fn parse_detailed_report(
+  text : String,
+) -> Result[DetailedReport, InputError] {
+  let value = @json.parse(text) catch {
+    _ =>
+      return Err({ code: "INPUT_JSON", message: "Invalid JSON in the report.", })
+  }
+  guard value is Object(fields) else {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "The report must be a JSON object.",
+    })
+  }
+  match fields.get("schema_version") {
+    Some(Number(n, ..)) if n == 2.0 => ()
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "Unsupported report schema version.",
+      })
+  }
+  guard fields.get("profile") is Some(String(profile)) else {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "The report requires a string profile.",
+    })
+  }
+  guard fields.get("source") is Some(String(source)) else {
+    return Err({
+      code: "INPUT_SCHEMA",
+      message: "The report requires a source.",
+    })
+  }
+  let complete = match fields.get("complete") {
+    Some(True) => true
+    Some(False) => false
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "The report requires a boolean complete.",
+      })
+  }
+  let summary = match fields.get("summary") {
+    Some(Object(summary_fields)) => {
+      let entries = match parse_int_field(summary_fields, "entries") {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let files = match parse_int_field(summary_fields, "files") {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let directories = match parse_int_field(summary_fields, "directories") {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let diagnostic_groups = match
+        parse_int_field(summary_fields, "diagnostic_groups") {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let scan_issues_summary = match
+        parse_int_field(summary_fields, "scan_issues") {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      {
+        entries,
+        files,
+        directories,
+        diagnostic_groups,
+        scan_issues: scan_issues_summary,
+      }
+    }
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "The report requires a summary object.",
+      })
+  }
+  let diagnostics = match fields.get("diagnostics") {
+    Some(Array(items)) => {
+      let list : Array[DetailedDiagnostic] = []
+      for index in 0..<items.length() {
+        guard items[index] is Object(item_fields) else {
+          return Err({
+            code: "INPUT_SCHEMA",
+            message: "A diagnostic must be an object.",
+          })
+        }
+        match parse_detailed_diagnostic(item_fields) {
+          Err(error) => return Err(error)
+          Ok(diagnostic) => list.push(diagnostic)
+        }
+      }
+      list
+    }
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "The report requires a diagnostics array.",
+      })
+  }
+  let limitations = match fields.get("limitations") {
+    Some(Array(items)) =>
+      match parse_diagnostic_strings(items, "limitations") {
+        Err(error) => return Err(error)
+        Ok(values) => values
+      }
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "The report requires a limitations array.",
+      })
+  }
+  let scan_issues = match fields.get("scan_issues") {
+    Some(Array(items)) =>
+      match parse_snapshot_issues(items) {
+        Err(error) => return Err(error)
+        Ok(values) => values
+      }
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "The report requires a scan_issues array.",
+      })
+  }
+  let scope = match fields.get("scope") {
+    Some(Array(items)) =>
+      match collect_snapshot_strings(items, "scope") {
+        Err(error) => return Err(error)
+        Ok(values) => values
+      }
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "The report requires a scope array.",
+      })
+  }
+  let excluded_entries = match parse_int_field(fields, "excluded_entries") {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let pruned_directories = match fields.get("pruned_directories") {
+    Some(Array(items)) =>
+      match parse_diagnostic_strings(items, "pruned_directories") {
+        Err(error) => return Err(error)
+        Ok(values) => values
+      }
+    _ =>
+      return Err({
+        code: "INPUT_SCHEMA",
+        message: "The report requires a pruned_directories array.",
+      })
+  }
+  Ok({
+    schema_version: 2,
+    profile,
+    source,
+    complete,
+    summary,
+    diagnostics,
+    limitations,
+    scan_issues,
+    scope,
+    excluded_entries,
+    pruned_directories,
+  })
+}
