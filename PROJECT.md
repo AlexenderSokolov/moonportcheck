@@ -2,9 +2,9 @@
 
 ## 目标与成功标准
 
-为 2026 年十月 MoonBit 活动准备独立作品。当前源码为 `0.3.0-dev`：以初态文件身份为基础，将交付意图编译为Copy/Move/Mkdir计划，由独立审计器重放验证；不实际操作输入树。v0.2.0是既有已发布版本，其发布记录仍见 [历史发布审计](docs/RELEASE_AUDIT_2026-10-01.md)。当前阶段的实际验证与范围见 [v0.3账本](docs/V03_PROGRESS.md)。
+为 2026 年十月 MoonBit 活动准备独立作品。`0.3.0`已于2026-10-17正式发布：以初态文件身份为基础，将交付意图编译为Copy/Move/Mkdir计划，由独立审计器重放验证；产品不实际操作输入树。当前发布与验证见[发布审计](docs/RELEASE_AUDIT_2026-10-17.md)，历史v0.2见[旧发布审计](docs/RELEASE_AUDIT_2026-10-01.md)，实施记录见[v0.3账本](docs/V03_PROGRESS.md)。
 
-初审反馈要求扣除路径检查/glob后证明独立语义；2026-10-16 用户批准v0.3本地实施。模型、codec、planner、auditor分别位于根包delivery_*模块；planner使用slot订阅唤醒与临时腾空，auditor独立推导最终身份而不调用planner。CLI提供plan/audit-plan；新格式version1独立于旧schema1/2，旧接口继续兼容。使用见 [DELIVERY.md](docs/DELIVERY.md)，复用入口见 [notes/PROJECT_REUSE.md](notes/PROJECT_REUSE.md)。本次不授权提交、推送、发布或报名。
+初审反馈要求扣除路径检查/glob后证明独立语义；2026-10-16用户批准本地实施，10-17追加授权验收补强及提交、推送、发布，报名仍未授权。模型、codec、planner、auditor分别位于根包delivery_*模块；planner使用slot订阅唤醒与临时腾空，auditor独立推导最终身份而不调用planner。CLI提供plan/audit-plan；新格式version1独立于旧schema1/2，旧接口继续兼容。使用见[DELIVERY.md](docs/DELIVERY.md)，复用入口见[notes/PROJECT_REUSE.md](notes/PROJECT_REUSE.md)。
 
 工作目录为 `D:\Study_Works\MoonBit\moonportcheck`。本项目与上级目录已有作品独立，使用自己的模块、工作区和工具链配置。2026-09-26 用户已批准 [v0.2 计划](docs/V02_PLAN.md)，授权创建公开 GitHub 仓库、真实基线提交、持续 PR 的逐次提交／推送和保留提交合并。正式包发布、Mooncakes 上传和报名仍另行授权。执行状态见 [V02_PROGRESS.md](docs/V02_PROGRESS.md)。
 

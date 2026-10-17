@@ -2,7 +2,7 @@
 
 用 MoonBit 编写的文件交付规划与独立验证库，附离线 CLI。给定初始快照和 Copy/Move 意图，检查每步前置条件及最终文件来源；同时保留跨平台路径预检能力。
 
-**当前源码版本：`0.3.0`。** 基于初态来源身份规划与审计交付：同样的路径集合，也能分辨正确交换和错误覆盖。旧路径检查、glob、快照差异及基线继续保留。[使用与语义](docs/DELIVERY.md)、[案例及生态差异](docs/V03_CASES.md)、[验收与复现](docs/V03_ACCEPTANCE.md)、[实施账本](docs/V03_PROGRESS.md)。发布状态以远端实际记录为准。
+**正式发布版本：`0.3.0`。** 基于初态来源身份规划与审计交付：同样的路径集合，也能分辨正确交换和错误覆盖。旧路径检查、glob、快照差异及基线继续保留。[使用与语义](docs/DELIVERY.md)、[案例及生态差异](docs/V03_CASES.md)、[验收与复现](docs/V03_ACCEPTANCE.md)、[发布审计](docs/RELEASE_AUDIT_2026-10-17.md)、[实施账本](docs/V03_PROGRESS.md)。
 
 ```text
 moonportcheck plan examples/delivery/swap/spec.json --format json
