@@ -48,7 +48,7 @@ Audit格式moonportcheck-delivery-audit/version1包含valid/status、first_faile
 
 run_acceptance在既有checks/demo/benchmark/consumer/package/unpack之后加入delivery阶段：跨目标纯库比较、小状态参考枚举和一万规模、合成/真实案例。案例脚本只在artifacts创建自己的fixture及报告；首次缺少固定v0.2 CLI样本时从已发布URL下载并校验固定SHA-256。正式CI需完整Git历史以取得v0.2.0源码tag，workflow已配置fetch-depth=0。
 
-本轮未获暂存或提交授权，生成的新公共接口因此与Git基线不同。本地完整验收可显式生成并使用指纹基准：
+以下保留2026-10-16未提交开发阶段的流程：当时仅获本地实现授权，新增公共接口与Git基线不同，故显式使用指纹基准。2026-10-17正式版本已提交并通过默认门禁，发布复现无需此变量；未来授权的未提交接口开发才使用下列流程：
 
 ```powershell
 . ./scripts/toolchain.ps1

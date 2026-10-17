@@ -22,9 +22,9 @@ Node读取Spec及显式snapshot文件→delivery_codec严格解析与canonical b
 - 独立BFS枚举590状态，324可行266阻塞；与实现及最终来源核对一致。输入逆序曾暴露确定性缺陷，已补回归修复。
 - 补充槽位BFS验证248组Copy/Move（172可行/76阻塞）；固定target profile曾被忽略，现由planner/auditor分别拒绝，保留incomplete退出3优先级。
 - JS/wasm-gc纯库demo6文档逐字节一致；10000复制/链/环分别10001/10000/12500步骤，0/0/2500临时槽。
-- 真实案例固定已发布源码tag与CLI ZIP（固定hash）；平铺覆盖阻塞，source/cli前缀分开后通过。不会拿当前未发布树伪装真实既有输入。
+- 真实案例固定已发布源码tag与CLI ZIP（固定hash）；平铺覆盖阻塞，source/cli前缀分开后通过。不会用开发工作树冒充固定历史发布输入。
 - 旧路径和glob重复生态能力，不能靠工程行数证明独立性；核心贡献须用身份、前置条件和重放反例说明。
-- 完整运行入口run_acceptance.ps1/sh；新语义快速入口run_delivery.ps1/sh；未提交接口需按DELIVERY.md显式捕获本地基准。当前公开CI和发布仍是待授权阶段，最终本地结果见V03_PROGRESS。
+- 完整运行入口run_acceptance.ps1/sh；新语义快速入口run_delivery.ps1/sh。10-16未提交接口使用显式本地基准；10-17正式提交使用默认门禁并完成公开CI和发布，实际结果见V03_PROGRESS及发布审计。
 - 最终Windows和本机Ubuntu WSL的完整验收均passed；核心JS/wasm-gc各135/135，Windows产品57通过2POSIX跳过、工程25通过1POSIX跳过，Linux产品59/59及工程26/26。两平台候选ZIP解包后包含plan/audit-plan并实际运行；这不是新SHA的公开CI或注册表发布。
 
 ## 提示词来源
