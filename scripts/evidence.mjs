@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { collectSourceSnapshot } from './source-snapshot.mjs';
 
 export function projectVersion(packageMetadata, moduleText) {
   const version = packageMetadata?.version;
@@ -45,7 +46,7 @@ export function executionMetadata({ version, git, runtime, env = {} }) {
     execution_environment: actions ? 'github_actions' : 'local',
     platform: runtime.platform, architecture: runtime.architecture,
     node: runtime.node, os_release: runtime.os_release,
-    source_commit: git.head, tested_sha: git.head, source_state: sourceState,
+    source_commit: git.head, tested_sha: sourceState === 'committed_clean' ? git.head : null, source_state: sourceState,
     github_actions: actions ? actionsIdentity(env) : null,
     public_release: 'not_published_by_acceptance',
   };
@@ -74,7 +75,7 @@ export async function collectEvidenceMetadata(root, env = process.env) {
   const ownRepository = top.status === 0 && comparable(top.stdout.trim()) === comparable(root);
   const head = ownRepository ? gitCommand(['rev-parse', '--verify', 'HEAD']) : null;
   const status = ownRepository ? gitCommand(['status', '--porcelain']) : null;
-  return executionMetadata({
+  const metadata = executionMetadata({
     version, env,
     git: {
       own_repository: ownRepository, head: head?.status === 0 ? head.stdout.trim() : null,
@@ -82,4 +83,6 @@ export async function collectEvidenceMetadata(root, env = process.env) {
     },
     runtime: { platform: process.platform, architecture: process.arch, node: process.version, os_release: os.release() },
   });
+  const snapshot = await collectSourceSnapshot(root);
+  return { ...metadata, source_snapshot_sha256: snapshot.sha256, source_file_count: snapshot.files.length };
 }

@@ -8,6 +8,8 @@ import {
 // Values
 pub fn audit(Array[PathEntry]) -> Report
 
+pub fn audit_delivery_plan(DeliverySpec, DeliveryPlan) -> DeliveryAudit
+
 pub fn audit_snapshot(Snapshot, Array[String]) -> Result[DetailedReport, InputError]
 
 pub fn audit_with_exclusions(Array[PathEntry], AuditOptions, ExclusionScope) -> DetailedReport
@@ -32,6 +34,10 @@ pub fn explain(String) -> RuleInfo?
 
 pub fn parse_baseline(String) -> Result[Baseline, InputError]
 
+pub fn parse_delivery_plan(String) -> Result[DeliveryPlan, InputError]
+
+pub fn parse_delivery_spec(String) -> Result[DeliverySpec, InputError]
+
 pub fn parse_detailed_report(String) -> Result[DetailedReport, InputError]
 
 pub fn parse_manifest(String) -> Result[Array[PathEntry], InputError]
@@ -44,6 +50,8 @@ pub fn parse_snapshot(String) -> Result[Snapshot, InputError]
 
 pub fn pattern_matches(PathPattern, PathEntry) -> Bool
 
+pub fn plan_delivery(DeliverySpec) -> Result[DeliveryPlan, InputError]
+
 pub fn render_baseline_diff_json(BaselineDiff) -> String
 
 pub fn render_baseline_diff_text(BaselineDiff) -> String
@@ -51,6 +59,20 @@ pub fn render_baseline_diff_text(BaselineDiff) -> String
 pub fn render_baseline_json(Baseline) -> String
 
 pub fn render_check_sarif(DetailedReport) -> String
+
+pub fn render_delivery_audit_json(DeliveryAudit) -> String
+
+pub fn render_delivery_audit_markdown(DeliveryAudit) -> String
+
+pub fn render_delivery_audit_text(DeliveryAudit) -> String
+
+pub fn render_delivery_plan_json(DeliveryPlan) -> String
+
+pub fn render_delivery_plan_markdown(DeliveryPlan) -> String
+
+pub fn render_delivery_plan_text(DeliveryPlan) -> String
+
+pub fn render_delivery_spec_json(DeliverySpec) -> String
 
 pub fn render_detailed_json(DetailedReport) -> String
 
@@ -138,6 +160,110 @@ pub enum BaselineStatus {
 pub fn BaselineStatus::equal(Self, Self) -> Bool
 pub fn BaselineStatus::not_equal(Self, Self) -> Bool
 pub fn BaselineStatus::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DeliveryAudit {
+  status : String
+  valid : Bool
+  first_failed_step : Int
+  diagnostics : Array[DeliveryDiagnostic]
+  final_entries : Array[DeliveryStateEntry]
+  trace : Array[DeliveryTrace]
+} derive(Eq, @debug.Debug)
+pub fn DeliveryAudit::equal(Self, Self) -> Bool
+pub fn DeliveryAudit::not_equal(Self, Self) -> Bool
+pub fn DeliveryAudit::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DeliveryDiagnostic {
+  code : String
+  path : String
+  message : String
+  step : Int
+} derive(Eq, @debug.Debug)
+pub fn DeliveryDiagnostic::equal(Self, Self) -> Bool
+pub fn DeliveryDiagnostic::not_equal(Self, Self) -> Bool
+pub fn DeliveryDiagnostic::to_repr(Self) -> @debug.Repr
+
+type DeliveryIntent derive(Eq, @debug.Debug)
+pub fn DeliveryIntent::equal(Self, Self) -> Bool
+pub fn DeliveryIntent::not_equal(Self, Self) -> Bool
+pub fn DeliveryIntent::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DeliveryMapping {
+  mode : String
+  source : String
+  from : String
+  to : String
+} derive(Eq, @debug.Debug)
+pub fn DeliveryMapping::equal(Self, Self) -> Bool
+pub fn DeliveryMapping::not_equal(Self, Self) -> Bool
+pub fn DeliveryMapping::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DeliveryOperation {
+  kind : String
+  source : String
+  from : String
+  to : String
+  origin : DeliveryOrigin
+} derive(Eq, @debug.Debug)
+pub fn DeliveryOperation::equal(Self, Self) -> Bool
+pub fn DeliveryOperation::not_equal(Self, Self) -> Bool
+pub fn DeliveryOperation::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DeliveryOrigin {
+  root : String
+  path : String
+} derive(Eq, @debug.Debug)
+pub fn DeliveryOrigin::equal(Self, Self) -> Bool
+pub fn DeliveryOrigin::not_equal(Self, Self) -> Bool
+pub fn DeliveryOrigin::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DeliveryPlan {
+  status : String
+  basis : String
+  operations : Array[DeliveryOperation]
+  temporary_paths : Array[String]
+  diagnostics : Array[DeliveryDiagnostic]
+} derive(Eq, @debug.Debug)
+pub fn DeliveryPlan::equal(Self, Self) -> Bool
+pub fn DeliveryPlan::not_equal(Self, Self) -> Bool
+pub fn DeliveryPlan::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DeliverySpec {
+  sources : Array[DeliveryTree]
+  target : DeliveryTree
+  mappings : Array[DeliveryMapping]
+} derive(Eq, @debug.Debug)
+pub fn DeliverySpec::equal(Self, Self) -> Bool
+pub fn DeliverySpec::not_equal(Self, Self) -> Bool
+pub fn DeliverySpec::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DeliveryStateEntry {
+  path : String
+  kind : EntryKind
+  origin : DeliveryOrigin
+} derive(Eq, @debug.Debug)
+pub fn DeliveryStateEntry::equal(Self, Self) -> Bool
+pub fn DeliveryStateEntry::not_equal(Self, Self) -> Bool
+pub fn DeliveryStateEntry::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DeliveryTrace {
+  step : Int
+  kind : String
+  from : String
+  to : String
+  origin : DeliveryOrigin
+} derive(Eq, @debug.Debug)
+pub fn DeliveryTrace::equal(Self, Self) -> Bool
+pub fn DeliveryTrace::not_equal(Self, Self) -> Bool
+pub fn DeliveryTrace::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DeliveryTree {
+  id : String
+  snapshot : Snapshot
+} derive(Eq, @debug.Debug)
+pub fn DeliveryTree::equal(Self, Self) -> Bool
+pub fn DeliveryTree::not_equal(Self, Self) -> Bool
+pub fn DeliveryTree::to_repr(Self) -> @debug.Repr
 
 pub(all) struct DetailedDiagnostic {
   code : String

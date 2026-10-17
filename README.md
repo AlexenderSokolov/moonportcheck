@@ -1,10 +1,19 @@
 # MoonPortCheck
 
-用 MoonBit 编写的跨平台路径预检库与离线 CLI。在把代码、数据或实验成果交给 Windows 用户前，检查文件名称、隐含目录及集合冲突。
+用 MoonBit 编写的文件交付规划与独立验证库，附离线 CLI。给定初始快照和 Copy/Move 意图，检查每步前置条件及最终文件来源；同时保留跨平台路径预检能力。
 
-**当前源码版本：`0.2.0`。** 固定配置为 `portable-windows-v1`。提供可解释的规则查询、详细来源报告、配置化排除、目录快照与差异、历史问题基线及增量 CI 判定；`scan/check` 支持 text、JSON、Markdown、SARIF 2.1.0。完整开发与 CI 记录见 [执行账本](docs/V02_PROGRESS.md)，原始范围见 [v0.2 计划](docs/V02_PLAN.md)，发布前独立核验见 [发布审计](docs/RELEASE_AUDIT_2026-10-01.md)。
+**当前源码版本：`0.3.0`。** 基于初态来源身份规划与审计交付：同样的路径集合，也能分辨正确交换和错误覆盖。旧路径检查、glob、快照差异及基线继续保留。[使用与语义](docs/DELIVERY.md)、[案例及生态差异](docs/V03_CASES.md)、[验收与复现](docs/V03_ACCEPTANCE.md)、[实施账本](docs/V03_PROGRESS.md)。发布状态以远端实际记录为准。
 
-CLI ZIP 下载入口：[GitHub v0.2.0 Release](https://github.com/AlexenderSokolov/moonportcheck/releases/tag/v0.2.0)。解包后以 `node bin/moonportcheck.mjs --help` 运行，需 Node.js 24，无需 MoonBit 编译器。归档附带 LICENSE、使用文档、样例与文件校验和；库发布入口为 [Mooncakes](https://mooncakes.io/docs/AlexenderSokolov/moonportcheck)。发布验证状态以发布审计和远端实际记录为准。
+```text
+moonportcheck plan examples/delivery/swap/spec.json --format json
+moonportcheck audit-plan examples/delivery/swap/spec.json plan.json --format markdown
+```
+
+源码运行时加前缀 `node bin/moonportcheck.mjs`，将第一条命令的stdout保存为plan.json再审计。仅生成和验证计划，绝不执行Copy/Move/Mkdir。需要真实文件状态时先用已有snapshot命令采集，再在Spec中引用对应文件。
+
+固定目标规则为 `portable-windows-v1`。既有发布与CI的历史记录见 [v0.2 账本](docs/V02_PROGRESS.md) 和 [发布审计](docs/RELEASE_AUDIT_2026-10-01.md)，不能替代v0.3本地验证。
+
+CLI ZIP 下载入口：[GitHub v0.3.0 Release](https://github.com/AlexenderSokolov/moonportcheck/releases/tag/v0.3.0)。解包后以 `node bin/moonportcheck.mjs --help` 运行，需 Node.js 24，无需 MoonBit 编译器。归档附带 LICENSE、使用文档、样例与文件校验和；库发布入口为 [Mooncakes](https://mooncakes.io/docs/AlexenderSokolov/moonportcheck)。发布验证状态以发布审计和远端实际记录为准。
 
 ```text
 results/A.csv + results/a.csv  → PATH_CASE_COLLISION

@@ -8,19 +8,34 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 import { candidateArchiveName, ZIP_FIXED_DATE, ZIP_FIXED_TIME } from './zip-util.mjs';
+import { collectEvidenceMetadata } from './evidence.mjs';
+import { collectSourceSnapshot, candidateSourceIdentity } from './source-snapshot.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
-const head = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' });
-assert.equal(head.status, 0, 'candidate packaging requires a Git HEAD');
-const shortSha = head.stdout.trim();
+const metadata = await collectEvidenceMetadata(root);
+const snapshot = await collectSourceSnapshot(root);
+assert.equal(snapshot.sha256, metadata.source_snapshot_sha256, 'source changed during packaging');
+const sourceIdentity = candidateSourceIdentity(metadata, snapshot);
+const provenance = { format: 'moonportcheck-candidate-source', version: 1, source_commit: metadata.source_commit,
+  tested_sha: metadata.tested_sha, source_state: metadata.source_state, source_snapshot_sha256: snapshot.sha256,
+  source_files: snapshot.files.length };
 const platform = process.platform;
+
+function exampleFiles(directory, relative='examples') {
+  const files=[];
+  for (const entry of readdirSync(directory,{withFileTypes:true}).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0)) {
+    const name=`${relative}/${entry.name}`;
+    if(entry.isDirectory())files.push(...exampleFiles(join(directory,entry.name),name));
+    else if(entry.isFile()&&/\.(json|md)$/.test(entry.name))files.push(name);
+  }
+  return files;
+}
 
 const packageFiles = ['bin/moonportcheck.mjs', 'lib/host.mjs', 'dist/bridge.js', 'package.json', 'LICENSE', 'README.md', 'PROJECT.md', 'CHANGELOG.md',
   ...readdirSync(join(root, 'docs')).filter(name => name.endsWith('.md')).sort().map(name => `docs/${name}`),
-  ...readdirSync(join(root, 'examples')).filter(name => name.endsWith('.json')).sort().map(name => `examples/${name}`),
+  ...exampleFiles(join(root,'examples')),
 ];
 for (const relative of packageFiles) {
   assert.ok(statSync(join(root, relative)).isFile(), `${relative}: build the CLI and run from the repo root first`);
@@ -84,6 +99,7 @@ const entries = [];
 for (const relative of packageFiles) {
   entries.push({ name: posix.join(...relative.split(/[\\/]/)), data: readFileSync(join(root, relative)) });
 }
+entries.push({ name: 'SOURCE.json', data: Buffer.from(JSON.stringify(provenance, null, 2) + '\n') });
 const checksumLines = entries
   .map(({ name, data }) => `${createHash('sha256').update(data).digest('hex')}  ${name}`)
   .sort()
@@ -93,7 +109,7 @@ entries.push({ name: 'CHECKSUMS.txt', data: Buffer.from(`${checksumLines}\n`, 'u
 const zip = buildZip(entries);
 const artifactDir = join(root, 'artifacts', 'candidate');
 mkdirSync(artifactDir, { recursive: true });
-const archiveName = candidateArchiveName(version, platform, shortSha);
+const archiveName = candidateArchiveName(version, platform, sourceIdentity);
 const archivePath = join(artifactDir, archiveName);
 writeFileSync(archivePath, zip);
 
@@ -116,7 +132,9 @@ for (const { name, data } of entries) {
 console.log(JSON.stringify({
   package: 'ok',
   version,
-  sha: shortSha,
+  sha: metadata.tested_sha,
+  source: provenance,
+  source_identity: sourceIdentity,
   platform,
   archive_path: archivePath,
   archive_sha256: sha256(zip),

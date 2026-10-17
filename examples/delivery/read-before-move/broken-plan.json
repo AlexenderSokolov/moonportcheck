@@ -1,0 +1,40 @@
+{
+  "format": "moonportcheck-delivery-plan",
+  "version": 1,
+  "status": "ready",
+  "basis": "{\"format\":\"moonportcheck-delivery-spec\",\"version\":1,\"sources\":[],\"target\":{\"id\":\"target\",\"snapshot\":{\"format\":\"moonportcheck-snapshot\",\"version\":1,\"profile\":\"portable-windows-v1\",\"complete\":true,\"scope\":[],\"entries\":[{\"path\":\"a\",\"kind\":\"file\"},{\"path\":\"b\",\"kind\":\"file\"}],\"scan_issues\":[]}},\"mappings\":[{\"mode\":\"copy\",\"source\":\"target\",\"from\":\"b\",\"to\":\"archive/y\"},{\"mode\":\"move\",\"source\":\"target\",\"from\":\"a\",\"to\":\"b\"},{\"mode\":\"move\",\"source\":\"target\",\"from\":\"b\",\"to\":\"c\"}]}",
+  "operations": [
+    {
+      "kind": "copy",
+      "source": "target",
+      "from": "b",
+      "to": "archive/y",
+      "origin": {
+        "root": "target",
+        "path": "b"
+      }
+    },
+    {
+      "kind": "move",
+      "source": "target",
+      "from": "b",
+      "to": "c",
+      "origin": {
+        "root": "target",
+        "path": "b"
+      }
+    },
+    {
+      "kind": "move",
+      "source": "target",
+      "from": "a",
+      "to": "b",
+      "origin": {
+        "root": "target",
+        "path": "a"
+      }
+    }
+  ],
+  "temporary_paths": [],
+  "diagnostics": []
+}

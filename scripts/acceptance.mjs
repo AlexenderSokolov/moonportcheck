@@ -4,12 +4,15 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { collectEvidenceMetadata, stepsPassed } from './evidence.mjs';
+import { collectSourceSnapshot } from './source-snapshot.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const output = path.join(root, 'artifacts', `acceptance-${process.platform}-${stamp}`);
 await fs.mkdir(output, { recursive: true });
 const steps = [];
+const initialMetadata = await collectEvidenceMetadata(root);
+const initialSnapshot = await collectSourceSnapshot(root);
 function execute(label, command, args) {
   const start = performance.now();
   const result = spawnSync(command, args, { cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, env: process.env });
@@ -23,6 +26,7 @@ const commands = [
   ['consumer', process.execPath, ['scripts/consumer-smoke.mjs']],
   ['package', process.execPath, ['scripts/package.mjs']],
   ['unpack', process.execPath, ['scripts/unpack.mjs']],
+  ['delivery', process.execPath, ['scripts/delivery-acceptance.mjs']],
 ];
 for (const [label, command, args] of commands) {
   console.log(`Acceptance: ${label}`);
@@ -35,20 +39,8 @@ for (const [label, command, args] of commands) {
     break;
   }
 }
-const excluded = new Set(['.git', '.toolchains', '_build', 'target', 'artifacts', 'dist', 'node_modules']);
-const sources = [];
-async function inventory(directory, relative = '') {
-  for (const entry of (await fs.readdir(directory, { withFileTypes: true })).sort((a,b) => a.name < b.name ? -1 : 1)) {
-    if (excluded.has(entry.name)) continue;
-    const next = relative ? `${relative}/${entry.name}` : entry.name;
-    if (entry.isDirectory()) await inventory(path.join(directory, entry.name), next);
-    else if (entry.isFile()) {
-      const bytes = await fs.readFile(path.join(directory, entry.name));
-      sources.push({ path: next, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
-    }
-  }
-}
-await inventory(root);
+const snapshot = await collectSourceSnapshot(root);
+const sources = snapshot.files;
 const sourceText = JSON.stringify(sources, null, 2) + '\n';
 await fs.writeFile(path.join(output, 'source-manifest.json'), sourceText);
 const toolchain = execute('toolchain', 'moon', ['version', '--all']);
@@ -57,9 +49,13 @@ const { log: toolchainLog, ...toolchainRecord } = toolchain;
 steps.push(toolchainRecord);
 if (toolchain.exit_code !== 0 || toolchain.signal) process.stderr.write(toolchainLog);
 const metadata = await collectEvidenceMetadata(root);
-const passed = stepsPassed(steps, [...commands.map(([label]) => label), 'toolchain']);
+const sourceUnchanged = initialSnapshot.sha256 === snapshot.sha256
+  && ['source_commit','source_state','tested_sha'].every(key => initialMetadata[key] === metadata[key]);
+const passed = stepsPassed(steps, [...commands.map(([label]) => label), 'toolchain']) && sourceUnchanged;
+if (!sourceUnchanged) process.stderr.write('Source changed during acceptance; results cannot attest the final source.\n');
 const evidence = {
   schema_version: 2, ...metadata, passed,
+  source_unchanged: sourceUnchanged, initial_source_snapshot_sha256: initialSnapshot.sha256,
   generated_at: new Date().toISOString(),
   source_manifest_sha256: createHash('sha256').update(sourceText).digest('hex'),
   source_files: sources.length, toolchain_lock: JSON.parse(await fs.readFile(path.join(root, 'scripts/toolchain.lock.json'), 'utf8')),

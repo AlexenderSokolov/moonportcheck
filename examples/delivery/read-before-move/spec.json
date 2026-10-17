@@ -1,0 +1,46 @@
+{
+  "format": "moonportcheck-delivery-spec",
+  "version": 1,
+  "target": {
+    "id": "target",
+    "snapshot": {
+      "format": "moonportcheck-snapshot",
+      "version": 1,
+      "profile": "portable-windows-v1",
+      "complete": true,
+      "scope": [],
+      "entries": [
+        {
+          "path": "a",
+          "kind": "file"
+        },
+        {
+          "path": "b",
+          "kind": "file"
+        }
+      ],
+      "scan_issues": []
+    }
+  },
+  "sources": [],
+  "mappings": [
+    {
+      "mode": "move",
+      "source": "target",
+      "from": "a",
+      "to": "b"
+    },
+    {
+      "mode": "move",
+      "source": "target",
+      "from": "b",
+      "to": "c"
+    },
+    {
+      "mode": "copy",
+      "source": "target",
+      "from": "b",
+      "to": "archive/y"
+    }
+  ]
+}

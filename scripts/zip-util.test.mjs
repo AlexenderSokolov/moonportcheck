@@ -10,6 +10,12 @@ test('candidate identity selects current commit even when older name sorts last'
   assert.notEqual(current, old);
 });
 
+test('uncommitted candidate identity uses the source snapshot, not the base commit', () => {
+  assert.equal(candidateArchiveName('0.3.0', 'win32', 'worktree-abcdef012345'),
+    'moonportcheck-0.3.0-win32-worktree-abcdef012345.zip');
+  assert.throws(() => candidateArchiveName('0.3.0', 'win32', '../bad'));
+});
+
 test('fixed ZIP DOS timestamp decodes to a valid 1980-01-01 midnight', () => {
   assert.deepEqual({
     year: 1980 + (ZIP_FIXED_DATE >>> 9), month: (ZIP_FIXED_DATE >>> 5) & 15,

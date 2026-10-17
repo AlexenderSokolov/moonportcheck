@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import metadata from '../package.json' with { type: 'json' };
-import { HostError, parseArguments, readConfig, readManifest, scan } from '../lib/host.mjs';
+import { HostError, parseArguments, readConfig, readDeliverySpec, readManifest, scan } from '../lib/host.mjs';
 
 const help = `MoonPortCheck ${metadata.version} — portable-windows-v1
 
 Usage:
+  moonportcheck plan SPEC.json [--format text|json|markdown]
+  moonportcheck audit-plan SPEC.json PLAN.json [--format text|json|markdown]
   moonportcheck scan ROOT [--config FILE] [--exclude PATTERN]... [--baseline BASELINE.json] [--fail-on new] [--format text|json|markdown|sarif]
   moonportcheck snapshot ROOT [--config FILE] [--exclude PATTERN]...
   moonportcheck check MANIFEST [--config FILE] [--exclude PATTERN]... [--format text|json|markdown|sarif]
@@ -68,6 +70,9 @@ async function main() {
     try {
       if (options.mode === 'rules' || options.mode === 'explain') {
         request = { mode: options.mode, format: options.format, code: options.target };
+      } else if (options.mode === 'plan' || options.mode === 'audit-plan') {
+        request={mode:options.mode,format:options.format,spec_text:await readDeliverySpec(options.target)};
+        if (options.mode==='audit-plan') request.plan_text=await readManifest(options.after);
       } else {
         const scope = await resolveScope(run_request, options);
         if (scope.error) {

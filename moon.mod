@@ -1,6 +1,6 @@
 name = "AlexenderSokolov/moonportcheck"
 
-version = "0.2.0"
+version = "0.3.0"
 
 readme = "README.md"
 
@@ -8,6 +8,6 @@ repository = "https://github.com/AlexenderSokolov/moonportcheck"
 
 license = "Apache-2.0"
 
-description = "Deterministic Windows portability checks for directory trees and path manifests."
+description = "Identity-based file delivery planning and independent plan auditing, with Windows portability checks."
 
-keywords = [ "paths", "portability", "windows", "cli" ]
+keywords = [ "delivery", "planning", "audit", "portability", "cli" ]

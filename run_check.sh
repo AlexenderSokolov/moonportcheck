@@ -4,7 +4,11 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$root/scripts/toolchain.sh"
 cd "$root"
 node scripts/toolchain.mjs version
-node scripts/api-check.mjs
+if [[ -n "${MOONPORT_API_BASELINE:-}" ]]; then
+  node scripts/api-check.mjs --local-baseline "$MOONPORT_API_BASELINE"
+else
+  node scripts/api-check.mjs
+fi
 node --test scripts/*.test.mjs
 moon fmt --check
 moon check --target js --deny-warn

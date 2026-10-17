@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 export function candidateArchiveName(version, platform, shortSha) {
   assert.match(version, /^[a-zA-Z0-9.+-]+$/, 'invalid candidate version');
   assert.match(platform, /^[a-zA-Z0-9_-]+$/, 'invalid candidate platform');
-  assert.match(shortSha, /^[a-f0-9]+$/, 'invalid candidate commit');
+  assert.match(shortSha, /^(?:[a-f0-9]+|worktree-[a-f0-9]{12})$/, 'invalid candidate source identity');
   return `moonportcheck-${version}-${platform}-${shortSha}.zip`;
 }
 

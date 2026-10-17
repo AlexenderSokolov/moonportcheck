@@ -2,13 +2,17 @@
 
 ## 目标与成功标准
 
-为 2026 年十月 MoonBit 活动准备独立作品，解决代码、数据和实验成果交付给 Windows 用户前的名称兼容检查。保留真实 v0.1 基线；当前源码版本为 `0.2.0`，已实现规则解释、交付范围、清单与比较、历史问题管理和 CI 报告。发布状态及验收证据以 [发布审计](docs/RELEASE_AUDIT_2026-10-01.md) 为准。
+为 2026 年十月 MoonBit 活动准备独立作品。当前源码为 `0.3.0-dev`：以初态文件身份为基础，将交付意图编译为Copy/Move/Mkdir计划，由独立审计器重放验证；不实际操作输入树。v0.2.0是既有已发布版本，其发布记录仍见 [历史发布审计](docs/RELEASE_AUDIT_2026-10-01.md)。当前阶段的实际验证与范围见 [v0.3账本](docs/V03_PROGRESS.md)。
+
+初审反馈要求扣除路径检查/glob后证明独立语义；2026-10-16 用户批准v0.3本地实施。模型、codec、planner、auditor分别位于根包delivery_*模块；planner使用slot订阅唤醒与临时腾空，auditor独立推导最终身份而不调用planner。CLI提供plan/audit-plan；新格式version1独立于旧schema1/2，旧接口继续兼容。使用见 [DELIVERY.md](docs/DELIVERY.md)，复用入口见 [notes/PROJECT_REUSE.md](notes/PROJECT_REUSE.md)。本次不授权提交、推送、发布或报名。
 
 工作目录为 `D:\Study_Works\MoonBit\moonportcheck`。本项目与上级目录已有作品独立，使用自己的模块、工作区和工具链配置。2026-09-26 用户已批准 [v0.2 计划](docs/V02_PLAN.md)，授权创建公开 GitHub 仓库、真实基线提交、持续 PR 的逐次提交／推送和保留提交合并。正式包发布、Mooncakes 上传和报名仍另行授权。执行状态见 [V02_PROGRESS.md](docs/V02_PROGRESS.md)。
 
 固定配置为 `portable-windows-v1`。名称规则参照 [Microsoft 文件命名文档](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file)，项目自身的集合与输入语义详见 [docs/RULES.md](docs/RULES.md)。十月赛事要求沿用现有活动规则规划，正式报名时必须再检查当月公告。
 
 ## 架构与边界
+
+2026-10-17已批准验收补强及提交、推送、正式发布；覆盖此前本轮仅本地授权，报名仍未授权。验收入口见[docs/V03_ACCEPTANCE.md](docs/V03_ACCEPTANCE.md)：独立模型直接重放计划、隔离fixture字节验证、新API独立模块消费及干净源码复现。产品不增加执行器；测试工具只修改自己创建的fixture。
 
 - **纯 MoonBit 根包**：输入模型、清单 JSON 解析、单条规则、层级索引、集合冲突分组、确定性报告与文本／JSON 渲染。只依赖标准库。
 - **MoonBit JS bridge**：将 host 请求交给核心检查，汇总扫描完整性、错误响应和退出码。外部协议写在 [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md)。
@@ -19,7 +23,7 @@
 
 2026-10-01 用户已授权正式发布。发布前必须核对精确提交的双平台 CI、解包运行和 Mooncakes 注册表结果；报名与赛事官方验收仍是独立事项。CLI 归档验收严格绑定版本、平台和 HEAD，验证内部文件哈希；快照检查始终继承不完整状态，快照路径唯一，diff 只比较继承范围内条目。
 
-目录扫描包含隐藏项，根目录本身不计数；不跟随符号链接或 junction。部分扫描结果不得宣称完整通过。CLI 固定退出码 `0`/`1`/`2`/`3`，分别表示无发现、规则发现、输入错误、I/O 或扫描不完整；不完整优先于规则发现。
+目录扫描包含隐藏项，根目录本身不计数；不跟随符号链接或 junction。部分扫描结果不得宣称完整通过。既有scan/check的退出码 `0`/`1`/`2`/`3` 分别表示无发现、规则发现、输入错误、I/O或扫描不完整；不完整优先于规则发现。新plan/audit-plan以同样四码表示ready/valid、语义阻塞/审计错误、文档错误、观测不完整/I/O。
 
 输入路径只使用 `/` 分段，不静默规范化反斜杠。结构无效的路径接受单条检查但不进入层级索引。中间目录隐含存在；冲突按组输出，重复条目保留准确次数，避免两两展开。排序稳定，不添加时间戳或绝对扫描根目录。
 
@@ -36,6 +40,7 @@
 | 核心与 CLI 检查 | `pwsh -File run_check.ps1` | `bash run_check.sh` |
 | 三组演示 | `pwsh -File run_demo.ps1` | `bash run_demo.sh` |
 | 完整本地验收 | `pwsh -File run_acceptance.ps1` | `bash run_acceptance.sh` |
+| 交付语义快速验证 | `pwsh -File run_delivery.ps1` | `bash run_delivery.sh` |
 
 构建后使用 `node bin/moonportcheck.mjs scan ROOT --format json` 或 `node bin/moonportcheck.mjs check MANIFEST --format text`。构建及检查不自动联网安装。运行方式改变时同步更新入口脚本及 README。
 

@@ -23,6 +23,89 @@ pub fn run_request(request : String) -> String {
       )
   }
   match fields.get("mode") {
+    Some(String("plan")) | Some(String("audit-plan")) => {
+      if format == "sarif" {
+        return error_response(
+          "json", 2, "ARGUMENT_ERROR", "Delivery formats are text, json and markdown.",
+        )
+      }
+      guard fields.get("spec_text") is Some(String(text)) else {
+        return error_response(
+          format, 2, "INPUT_SCHEMA", "Missing delivery spec text.",
+        )
+      }
+      let spec = match @moonportcheck.parse_delivery_spec(text) {
+        Err(e) => return error_response(format, 2, e.code, e.message)
+        Ok(spec) => spec
+      }
+      match fields.get("mode") {
+        Some(String("plan")) => {
+          let plan = match @moonportcheck.plan_delivery(spec) {
+            Err(e) => return error_response(format, 2, e.code, e.message)
+            Ok(plan) => plan
+          }
+          if plan.status == "ready" {
+            let verified = @moonportcheck.audit_delivery_plan(spec, plan)
+            if !verified.valid {
+              return response(
+                1,
+                if format == "json" {
+                  @moonportcheck.render_delivery_audit_json(verified)
+                } else if format == "markdown" {
+                  @moonportcheck.render_delivery_audit_markdown(verified)
+                } else {
+                  @moonportcheck.render_delivery_audit_text(verified)
+                },
+              )
+            }
+          }
+          response(
+            if plan.status == "ready" {
+              0
+            } else if plan.status == "incomplete" {
+              3
+            } else {
+              1
+            },
+            if format == "json" {
+              @moonportcheck.render_delivery_plan_json(plan)
+            } else if format == "markdown" {
+              @moonportcheck.render_delivery_plan_markdown(plan)
+            } else {
+              @moonportcheck.render_delivery_plan_text(plan)
+            },
+          )
+        }
+        _ => {
+          guard fields.get("plan_text") is Some(String(plan_text)) else {
+            return error_response(
+              format, 2, "INPUT_SCHEMA", "Missing delivery plan text.",
+            )
+          }
+          let plan = match @moonportcheck.parse_delivery_plan(plan_text) {
+            Err(e) => return error_response(format, 2, e.code, e.message)
+            Ok(plan) => plan
+          }
+          let verified = @moonportcheck.audit_delivery_plan(spec, plan)
+          response(
+            if verified.valid {
+              0
+            } else if verified.status == "incomplete" {
+              3
+            } else {
+              1
+            },
+            if format == "json" {
+              @moonportcheck.render_delivery_audit_json(verified)
+            } else if format == "markdown" {
+              @moonportcheck.render_delivery_audit_markdown(verified)
+            } else {
+              @moonportcheck.render_delivery_audit_text(verified)
+            },
+          )
+        }
+      }
+    }
     Some(String("rules")) => rules_response(format, @moonportcheck.rules())
     Some(String("explain")) => {
       guard fields.get("code") is Some(String(code)) else {

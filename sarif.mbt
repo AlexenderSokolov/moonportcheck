@@ -1,7 +1,7 @@
 ///|
 /// Product version embedded in the SARIF driver metadata. Keep in step with
 /// package.json; the release script checks the match.
-const PRODUCT_VERSION : String = "0.2.0"
+const PRODUCT_VERSION : String = "0.3.0"
 
 ///|
 /// The URI code space for artifact locations: ASCII letters, digits and

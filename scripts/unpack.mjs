@@ -9,16 +9,16 @@ import { basename, dirname, join, posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { candidateArchiveName, parseZipEntries } from './zip-util.mjs';
+import { collectEvidenceMetadata } from './evidence.mjs';
+import { collectSourceSnapshot, candidateSourceIdentity, verifyCandidateSource } from './source-snapshot.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const candidateDir = join(root, 'artifacts', 'candidate');
 
 const expectedVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
-function currentArchive() {
-  const head = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' });
-  assert.equal(head.status, 0, 'candidate verification requires a Git HEAD');
-  return join(candidateDir, candidateArchiveName(expectedVersion, process.platform, head.stdout.trim()));
-}
+const metadata = await collectEvidenceMetadata(root);
+const currentSnapshot = await collectSourceSnapshot(root);
+const currentArchive = () => join(candidateDir, candidateArchiveName(expectedVersion, process.platform, candidateSourceIdentity(metadata, currentSnapshot)));
 
 const archivePath = process.argv[2] ? resolve(process.argv[2]) : currentArchive();
 const zip = readFileSync(archivePath);
@@ -38,6 +38,11 @@ for (const line of checksums.data.toString('utf8').trim().split('\n')) {
 }
 assert.equal(checked.size, entries.size - 1, 'checksums must cover every payload file');
 assert.equal(JSON.parse(entries.get('package.json').data.toString('utf8')).version, expectedVersion, 'packaged version must match current source');
+const provenance = JSON.parse(entries.get('SOURCE.json')?.data.toString('utf8') ?? 'null');
+assert.ok(provenance, 'candidate must describe its actual source identity');
+assert.equal(provenance.tested_sha, provenance.source_state === 'committed_clean' ? provenance.source_commit : null);
+assert.match(provenance.source_snapshot_sha256, /^[a-f0-9]{64}$/);
+verifyCandidateSource(provenance,metadata,currentSnapshot);
 
 const work = join(root, 'artifacts', `unpack-${process.platform}-${Date.now()}`);
 const target = join(work, 'pkg');
@@ -96,15 +101,20 @@ writeFileSync(reportFile, invoke(['scan', delivery, '--format', 'json']).stdout)
 const baselineFile = join(work, 'baseline.json');
 writeFileSync(baselineFile, invoke(['baseline', 'create', reportFile]).stdout);
 invoke(['scan', delivery, '--baseline', baselineFile, '--fail-on', 'new']);
+const deliverySpec=join(target,'examples','delivery','swap','spec.json');
+const deliveryPlan=join(work,'delivery-plan.json');
+writeFileSync(deliveryPlan,invoke(['plan',deliverySpec,'--format','json']).stdout);
+assert.equal(JSON.parse(invoke(['audit-plan',deliverySpec,deliveryPlan,'--format','json']).stdout).valid,true);
 
 console.log(JSON.stringify({
   unpack: 'ok',
   platform: process.platform,
   archive: basename(archivePath),
   sha256,
+  source: provenance,
   entries: [...entries.keys()],
   version,
   findings_exit: 1,
   clean_exit: 0,
-  public_commands: ['scan', 'check', 'snapshot', 'diff', 'baseline create', 'rules', 'explain'],
+  public_commands: ['scan', 'check', 'snapshot', 'diff', 'baseline create', 'rules', 'explain', 'plan', 'audit-plan'],
 }, null, 2));

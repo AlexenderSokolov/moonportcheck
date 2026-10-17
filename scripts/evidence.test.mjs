@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {verifyCandidateSource} from './source-snapshot.mjs';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { collectSourceSnapshot, candidateSourceIdentity } from './source-snapshot.mjs';
 import {
   projectVersion, executionMetadata, stepsPassed, collectEvidenceMetadata,
 } from './evidence.mjs';
@@ -8,6 +12,15 @@ import {
 const version = '0.2.0-rc.1';
 const runtime = { platform: 'linux', architecture: 'x64', node: 'v24.15.0', os_release: '6.8.0' };
 const git = { own_repository: true, head: 'a'.repeat(40), status: '', status_ok: true };
+
+test('a self-consistent same-version candidate from another source is rejected',()=>{
+  const metadata={source_state:'committed_clean',source_commit:'a'.repeat(40),tested_sha:'a'.repeat(40)};
+  const snapshot={sha256:'c'.repeat(64)};
+  const correct={...metadata,source_snapshot_sha256:snapshot.sha256};
+  verifyCandidateSource(correct,metadata,snapshot);
+  assert.throws(()=>verifyCandidateSource({...correct,source_commit:'b'.repeat(40),tested_sha:'b'.repeat(40)},metadata,snapshot),/source identity differs/);
+  assert.throws(()=>verifyCandidateSource({...correct,source_snapshot_sha256:'d'.repeat(64)},metadata,snapshot),/source snapshot differs/);
+});
 
 test('version comes from package metadata and agrees with the MoonBit module', () => {
   assert.equal(projectVersion({ version }, `name = "example/lib"\nversion = "${version}"\n`), version);
@@ -97,7 +110,7 @@ test('dirty, unavailable, and unborn repositories never claim a clean committed 
   for (const [state, expected] of states) {
     const result = executionMetadata({ version, git: state, runtime, env: {} });
     assert.equal(result.source_state, expected);
-    assert.equal(result.tested_sha, state.head);
+    assert.equal(result.tested_sha, null);
   }
 });
 
@@ -119,5 +132,26 @@ test('metadata collection reads the current checkout using its actual project fi
   assert.equal(result.node, process.version);
   assert.equal(result.platform, process.platform);
   assert.equal(result.execution_environment, 'local');
-  assert.equal(result.source_commit, result.tested_sha);
+  assert.equal(result.tested_sha, result.source_state === 'committed_clean' ? result.source_commit : null);
+  assert.match(result.source_snapshot_sha256, /^[a-f0-9]{64}$/);
+  assert.ok(result.source_file_count > 0);
+});
+
+test('source snapshot includes untracked bytes while build outputs cannot change its identity', async () => {
+  const artifacts = fileURLToPath(new URL('../artifacts/', import.meta.url));
+  await fs.mkdir(artifacts, { recursive: true });
+  const fixture = await fs.mkdtemp(path.join(artifacts, 'source-snapshot-test-'));
+  await fs.writeFile(path.join(fixture, 'untracked.mbt'), 'source-v1');
+  await fs.mkdir(path.join(fixture, 'dist'));
+  await fs.writeFile(path.join(fixture, 'dist', 'bridge.js'), 'build-v1');
+  const before = await collectSourceSnapshot(fixture);
+  assert.deepEqual(before.files.map(file => file.path), ['untracked.mbt']);
+  await fs.writeFile(path.join(fixture, 'dist', 'bridge.js'), 'build-v2');
+  assert.equal((await collectSourceSnapshot(fixture)).sha256, before.sha256);
+  await fs.writeFile(path.join(fixture, 'untracked.mbt'), 'source-v2');
+  const after = await collectSourceSnapshot(fixture);
+  assert.notEqual(after.sha256, before.sha256);
+  const dirty = executionMetadata({ version, git: { ...git, status: '?? untracked.mbt' }, runtime });
+  assert.equal(candidateSourceIdentity(dirty, after), `worktree-${after.sha256.slice(0, 12)}`);
+  assert.equal(candidateSourceIdentity(executionMetadata({ version, git, runtime }), after), git.head.slice(0, 7));
 });

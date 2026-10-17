@@ -3,3 +3,6 @@
 *.mjs text eol=lf
 *.mbt text eol=lf
 *.json text eol=lf
+# The compiler writes interface files with LF, including on Windows. Keep their
+# checkout bytes stable so acceptance can detect real source drift.
+*.mbti text eol=lf

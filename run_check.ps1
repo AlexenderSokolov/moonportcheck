@@ -4,7 +4,8 @@ Push-Location $PSScriptRoot
 try {
   & node scripts/toolchain.mjs version
   if ($LASTEXITCODE -ne 0) { throw 'Toolchain check failed.' }
-  & node scripts/api-check.mjs
+  if ($env:MOONPORT_API_BASELINE) { & node scripts/api-check.mjs --local-baseline $env:MOONPORT_API_BASELINE }
+  else { & node scripts/api-check.mjs }
   if ($LASTEXITCODE -ne 0) { throw 'Public API check failed.' }
   & node --test 'scripts/*.test.mjs'
   if ($LASTEXITCODE -ne 0) { throw 'Engineering checks failed.' }
